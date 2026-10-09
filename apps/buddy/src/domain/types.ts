@@ -62,6 +62,23 @@ export interface Insight {
   type: 'strength' | 'growth_area' | 'focus';
   text: string;
   reason: string;
+  /** Questionnaire answer IDs used by the deterministic analyzer. */
+  evidenceRefs?: string[];
+  provenance?: 'assessment';
+  analysisVersion?: number;
+}
+
+/** Derived state. Raw onboarding answers remain in AssessmentDoc. */
+export interface ProfileAnalysis {
+  analysisVersion: number;
+  revision: string;
+  assessmentUpdatedAt: string;
+  stats: StatBlock;
+  insights: Insight[];
+  focusArea: LifeArea;
+  title: string;
+  evidenceRefs: string[];
+  warnings: string[];
 }
 
 export interface PlayerProfile {
