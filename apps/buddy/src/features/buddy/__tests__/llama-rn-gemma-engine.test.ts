@@ -67,11 +67,27 @@ describe('Gemma native adapter', () => {
     await engine.initialize('gemma4-e2b');
     const tools = [{ type: 'function' as const, function: { name: 'notes.read', parameters: { type: 'object' } } }];
     expect(await engine.generate({ prompt: 'notes', maxOutputTokens: 16, tools, toolChoice: 'auto' })).toEqual({
-      kind: 'toolCall', toolCall: { id: 'call-1', name: 'notes.read', arguments: {} },
+      kind: 'toolCall', toolCall: { id: 'call-1', name: 'notes.read', arguments: '{}' },
     });
     expect(completion.mock.calls[0][0]).toMatchObject({ tools, tool_choice: 'auto', parallel_tool_calls: false });
     completion.mockResolvedValueOnce({ content: 'Also done', tool_calls: [{ type: 'function', function: { name: 'notes.read', arguments: '{}' } }] });
     await expect(engine.generate({ prompt: 'notes', maxOutputTokens: 16 })).rejects.toThrow('Ambiguous');
     expect(engine.capabilities()).toBeNull();
+  });
+
+  it('preserves duplicate JSON keys for strict tool validation', async () => {
+    const raw = '{"body":"first","body":"second"}';
+    const engine = new LlamaRnGemmaEngine(manager, async () => ({
+      initLlama: async () => ({
+        release: async () => {},
+        completion: async () => ({ content: '', tool_calls: [{
+          type: 'function', function: { name: 'notes.create', arguments: raw },
+        }] }),
+      }),
+    }) as never);
+    await engine.initialize('gemma4-e2b');
+    expect(await engine.generate({ prompt: 'add note', maxOutputTokens: 16 })).toEqual({
+      kind: 'toolCall', toolCall: { id: 'native-call-1', name: 'notes.create', arguments: raw },
+    });
   });
 });

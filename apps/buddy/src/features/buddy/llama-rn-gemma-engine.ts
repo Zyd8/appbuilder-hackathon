@@ -91,7 +91,8 @@ export class LlamaRnGemmaEngine implements AIEngine {
         const call = calls[0];
         return { kind: 'toolCall', toolCall: {
           id: call.id ?? 'native-call-1', name: call.function.name,
-          arguments: JSON.parse(call.function.arguments),
+          // Preserve the exact native JSON for the registry's duplicate-key and size checks.
+          arguments: call.function.arguments,
         } };
       }
       const text = (result.content || result.text || '').trim();
