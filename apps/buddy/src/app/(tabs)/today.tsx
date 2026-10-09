@@ -138,7 +138,7 @@ export default function Today() {
         today={today}
         emptyText={t('today.notes.empty')}
         addPlaceholder={t('today.notes.add')}
-        onAdd={(body) => addNote(body, { dueToday: true })}
+        onAdd={(body) => addNote(body, { date: today })}
       />
     </Screen>
   );
