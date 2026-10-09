@@ -11,7 +11,7 @@ The team wants every Buddy user tied to a Google account before onboarding start
 
 ## Decision
 
-- The welcome screen's **Let's begin** button opens a **required** Google login (`/onboarding/login`). There is no skip or "continue offline" option.
+- Google login is **required** before onboarding. There is no skip or "continue offline" option. (Updated 2026-10-09: the welcome and login screens were merged into one landing page at `/onboarding`, reached after the animated splash at `/`. The **Continue with Google** button is on the landing page itself.)
 - Sign-in uses **Supabase OAuth in an in-app browser** (`signInWithOAuth` + `expo-web-browser` + PKCE). This flow works in Expo Go. A later refactor to native Google sign-in is tracked in `docs/todo/001-native-google-signin.md`.
 - After a successful login, the app saves **id, email, display name, avatar URL and provider**:
   1. first to on-device `localStorage` (`expo-sqlite/localStorage`, key `buddy.account.profile`), which is the local source of truth;

@@ -1,8 +1,6 @@
-import { useColorScheme } from 'react-native';
+import { colors, type ThemeColors } from './tokens';
 
-import { palette, type ThemeColors } from './tokens';
-
-export function useTheme(): { colors: ThemeColors; isDark: boolean } {
-  const isDark = useColorScheme() === 'dark';
-  return { colors: isDark ? palette.dark : palette.light, isDark };
+/** The Angat brand is light-only (white background), so the system color scheme is ignored. */
+export function useTheme(): { colors: ThemeColors } {
+  return { colors };
 }
