@@ -94,7 +94,11 @@ export default function RootLayout() {
             name="settings"
             options={{ presentation: 'modal', headerShown: true, title: t('settings.title') }}
           />
-          <Stack.Screen name="check-in" options={{ ...halfSheet, title: t('checkin.title') }} />
+          <Stack.Screen
+            name="share-progress"
+            options={{ presentation: 'modal', headerShown: true, title: t('share.title') }}
+          />
+          <Stack.Screen name="check-in"options={{ ...halfSheet, title: t('checkin.title') }} />
           <Stack.Screen name="stats" options={{ ...halfSheet, title: t('stats.breakdown') }} />
           <Stack.Screen name="quest/[id]" options={{ ...halfSheet, title: t('quests.details') }} />
           <Stack.Screen name="note/new" options={{ ...halfSheet, title: t('note.new.title') }} />

@@ -138,7 +138,14 @@
           "speechRecognitionPermission": "Angat turns your speech into note text on your phone. Audio is not saved or sent anywhere."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-sharing",
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "Angat saves your progress card to your photos only when you tap Save."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
