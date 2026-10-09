@@ -4,6 +4,7 @@ This folder contains the durable plans and decisions for AppBuilder Hackathon.
 
 ## Folders
 
+- `app/` — the Angat product brief and the feature reference (`angat-app-features.md`): what is built, what is preview, and what is planned.
 - `plans/` — product direction, implementation phases, demo scripts, and acceptance criteria.
 - `decisions/` — architecture decision records explaining choices and tradeoffs.
 - `todo/` — known follow-up refactors with their reason and acceptance criteria.
