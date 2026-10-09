@@ -16,7 +16,7 @@ Ship the brief's Hackathon MVP slice (section 14) as a React Native app, buildin
 
 Widgets, live news/weather, story cards, story arcs, and multi-user sync (brief section 14). Supabase backup of user content stays opt-in and arrives last (Phase 7).
 
-**Change (ADR-005):** a Google account is now required before onboarding. Identity data (id, email, name, photo) goes to Supabase `public.profiles`. **ADR-006:** onboarding answers are also backed up to `public.onboarding_assessments`. Everything else stays on the device.
+**Change (ADR-005):** a Google account is now required before onboarding. Identity data (id, email, name, photo) goes to Supabase `public.profiles`. **ADR-006:** onboarding answers are also backed up to `public.onboarding_assessments`. **ADR-008 / plan 005:** notes are saved on the device and backed up to `public.notes`, with an optional scheduled date and a calendar view. Everything else stays on the device.
 
 ## Assumptions
 
