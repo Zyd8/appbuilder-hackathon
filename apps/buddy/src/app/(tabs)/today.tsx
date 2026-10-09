@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
+import { BrandLogo } from '@/components/brand-logo';
 import { BuddyMascot } from '@/components/buddy-mascot';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
@@ -39,7 +40,10 @@ export default function Today() {
 
   return (
     <Screen>
-      <OnDeviceBadge />
+      <View style={styles.brandRow}>
+        <BrandLogo variant="mark" height={28} />
+        <OnDeviceBadge />
+      </View>
       <View style={styles.headerRow}>
         <View style={styles.flex}>
           <AppText variant="display">{t(greetingKey(), { name: profile.displayName })}</AppText>
@@ -116,6 +120,7 @@ export default function Today() {
 }
 
 const styles = StyleSheet.create({
+  brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   flex: { flex: 1 },

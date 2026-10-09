@@ -212,7 +212,7 @@ Settings (via Player or a gear icon): **account (name, email, sign out)**, prefe
 | Layer | Default | Notes |
 |---|---|---|
 | App | **React Native (Expo with dev client) + TypeScript** | One codebase for Android and iOS. Widgets and the on-device model need native modules, so use a dev client rather than Expo Go. |
-| Navigation | Expo Router | Routes include `onboarding/login` and `auth/callback`. |
+| Navigation | Expo Router | Sign-in lives on the landing page (`/onboarding`); `auth/callback` handles the OAuth redirect. |
 | State | Zustand | |
 | Database | **SQLite (expo-sqlite) + Drizzle ORM** | All data local. |
 | On-device LLM | Small (about 1–2B parameter) 4-bit model behind an `AIEngine` interface (MediaPipe LLM Inference on Android, llama.cpp / MLX bindings on iOS) | Prefer platform AI (Apple Foundation Models, Gemini Nano) where available. |
