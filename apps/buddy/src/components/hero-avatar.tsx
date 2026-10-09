@@ -10,16 +10,15 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { useBambotImage } from '@/components/buddy-mascot';
 import { spacing } from '@/theme/tokens';
-
-// Temporary hero art until the final mascot lands; BuddyMascot moods come back with it.
-const AVATAR = require('../../assets/images/simoy-avatar.png');
 
 /**
  * The player's avatar standing on the bottom edge of a `GradientPanel` row (Today and Player heroes).
  * Assumes the panel uses `spacing.md` padding; the panel clips the part that sinks below its edge.
  */
 export function HeroAvatar({ accessibilityLabel }: { accessibilityLabel: string }) {
+  const avatar = useBambotImage();
   const reduceMotion = useReducedMotion();
   const bob = useSharedValue(0);
 
@@ -34,7 +33,7 @@ export function HeroAvatar({ accessibilityLabel }: { accessibilityLabel: string 
     <View style={styles.column}>
       {/* `contain` keeps the whole avatar visible; it stands on the bottom edge of the panel. */}
       <Animated.View style={style}>
-        <Image source={AVATAR} style={styles.avatar} contentFit="contain" accessibilityLabel={accessibilityLabel} />
+        <Image source={avatar} style={styles.avatar} contentFit="contain" accessibilityLabel={accessibilityLabel} />
       </Animated.View>
     </View>
   );

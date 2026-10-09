@@ -1,5 +1,5 @@
 /// <reference types="jest" />
-import { DAILY_XP_CAP, grantXp, levelFromTotalXp, playerRank, RANK_XP, xpToNextLevel } from '../xp';
+import { bambotStage, DAILY_XP_CAP, grantXp, levelFromTotalXp, playerRank, RANK_XP, xpToNextLevel } from '../xp';
 
 describe('xpToNextLevel', () => {
   it('grows with level so later levels take longer', () => {
@@ -51,5 +51,16 @@ describe('playerRank', () => {
     expect(playerRank(5).rank).toBe('D');
     expect(playerRank(10).rank).toBe('C');
     expect(playerRank(50).title).toBe('S-Rank Legend');
+  });
+});
+
+describe('bambotStage', () => {
+  it('shows a more mature Bambot as the player levels up', () => {
+    expect(bambotStage(1)).toBe(1);
+    expect(bambotStage(4)).toBe(1);
+    expect(bambotStage(5)).toBe(2);
+    expect(bambotStage(9)).toBe(2);
+    expect(bambotStage(10)).toBe(3);
+    expect(bambotStage(50)).toBe(3);
   });
 });

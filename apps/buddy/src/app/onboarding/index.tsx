@@ -43,6 +43,7 @@ export default function Landing() {
         await restoreAssessment();
         // Notes saved on another phone come back in the background (ADR-008).
         usePreviewStore.getState().syncNotes();
+        usePreviewStore.getState().syncProgress();
         if (!result.synced) showToast(t('login.syncPending'));
         setStatus('idle');
         if (usePreviewStore.getState().onboarded) router.replace('/today');

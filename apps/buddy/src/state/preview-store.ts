@@ -1,6 +1,7 @@
 /**
  * Phase 1 store. Drives the clickable UI shell with synthetic data.
  * The account (ADR-005), onboarding answers (ADR-006) and notes (ADR-008) persist on the device;
+ * XP (ADR-010) is saved too and backed up;
  * everything else is still in memory and is lost on restart until Phase 2 adds SQLite.
  */
 import { randomUUID } from 'expo-crypto';
@@ -43,6 +44,8 @@ import { loadCachedProfile } from '@/lib/account-storage';
 import { loadAssessment, writeAssessment } from '@/lib/assessment-storage';
 import { restoreAssessment, syncPendingAssessment } from '@/lib/assessment-sync';
 import { loadNotes, writeNotes } from '@/lib/notes-storage';
+import { loadProgress } from '@/lib/progress-storage';
+import { syncProgress } from '@/lib/progress-sync';
 import { scheduleNotesSync, syncNotes } from '@/lib/notes-sync';
 
 export const FREE_REROLLS_PER_DAY = 2;
@@ -87,6 +90,8 @@ interface PreviewState {
   clearAccount: () => void;
   /** Load this account's answers, merging in the cloud copy when reachable (e.g. a new phone). */
   restoreAssessment: () => Promise<void>;
+  /** Merge XP with the cloud copy (the larger total wins) and push if the device is ahead. Failures stay pending. */
+  syncProgress: () => void;
   /** Push unsynced answers to Supabase. Fire-and-forget; failures stay pending for the next call. */
   syncAssessment: () => void;
   setAnswer: (questionId: string, answer: OnboardingAnswer | undefined) => void;
@@ -145,6 +150,12 @@ const nowIso = () => new Date().toISOString();
 
 const cachedAccount = loadCachedProfile();
 
+/** The preview profile, with the XP saved on the device for this account (ADR-010). */
+function profileFor(userId: string | undefined) {
+  const saved = userId ? loadProgress(userId) : undefined;
+  return saved ? { ...PREVIEW_PROFILE, totalXp: Math.max(PREVIEW_PROFILE.totalXp, saved.totalXp) } : PREVIEW_PROFILE;
+}
+
 let idCounter = 0;
 function localId(prefix: string): string {
   idCounter += 1;
@@ -176,6 +187,7 @@ function changeNote(noteId: string, change: (note: StoredNote, now: string) => S
 export const usePreviewStore = create<PreviewState>()((set, get) => ({
   ...initialState(),
   account: cachedAccount,
+  profile: profileFor(cachedAccount?.id),
   ...assessmentState(cachedAccount ? loadAssessment(cachedAccount.id) : undefined),
   ...loadedNotesState(cachedAccount ? loadNotes(cachedAccount.id) : undefined),
 
@@ -183,7 +195,12 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
     set((s) =>
       s.account?.id === account.id
         ? { account }
-        : { account, ...assessmentState(loadAssessment(account.id)), ...loadedNotesState(loadNotes(account.id)) },
+        : {
+            account,
+            profile: profileFor(account.id),
+            ...assessmentState(loadAssessment(account.id)),
+            ...loadedNotesState(loadNotes(account.id)),
+          },
     ),
 
   clearAccount: () =>
@@ -194,6 +211,20 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
     if (!userId) return;
     const doc = await restoreAssessment(userId);
     if (get().account?.id === userId) set(assessmentState(doc));
+  },
+
+  syncProgress: () => {
+    const { account, profile } = get();
+    if (!account) return;
+    const userId = account.id;
+    void syncProgress(userId, profile.totalXp).then((doc) => {
+      // XP only goes up: take the merged total (e.g. earned on another phone), never a lower one.
+      set((s) =>
+        s.account?.id === userId && doc.totalXp > s.profile.totalXp
+          ? { profile: { ...s.profile, totalXp: doc.totalXp } }
+          : {},
+      );
+    });
   },
 
   syncAssessment: () => {
@@ -248,6 +279,7 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
       xpEarnedToday: s.xpEarnedToday + granted,
       profile: { ...s.profile, totalXp: s.profile.totalXp + granted },
     });
+    if (granted > 0) get().syncProgress();
     return { granted, leveledUpTo: after > before ? after : undefined };
   },
 
