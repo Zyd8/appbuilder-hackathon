@@ -251,7 +251,26 @@ Offline is a normal state, not an error. Make it visible and calm:
 - [ ] Accessibility roles, labels, and states are set. Targets are 44 pt or larger.
 - [ ] Offline, queued, and sync states are visible where the screen depends on the network.
 
-## 14. Current status and known gaps
+## 14. Home-screen widgets
+
+Three widgets (Buddy, Daily quest, Today's notes) exist on iOS (`expo-widgets`) and Android (`react-native-android-widget`). They reuse the app's look, not its components: widget views cannot render React Native views.
+
+| Widget | Mirrors | Content |
+| --- | --- | --- |
+| Buddy | `PlayerBanner` | Brand gradient card (radius 28): avatar, name, white "LV n" badge, player title, thin `onPrimary` XP bar, XP count, white streak and rest pills. The small iOS size and short Android sizes drop the avatar and the rest pill. |
+| Daily quest | `QuestRow` | White card with a `border`, a `primary` overline and "n of m done", then a `surfaceAlt` row: area chip (area icon on a 10% tint, a check on `successSoft` when done), title, area · minutes · XP, chevron. Shows the first quest still to do. All done and empty states use the same calm tile. |
+| Today's notes | `NoteList` | White card, overline and open count, up to five rows (round checkbox, one line of text; `success` check when done, `danger` ring for high priority), and a filled `primary` pill "Add a note". |
+
+Rules:
+
+- **Tokens, not hex.** Android imports them. The iOS widget body runs in an isolated runtime with no imports, so `widget-theme.ts` picks the tokens and passes them in as the `theme` prop. Strings are formatted with `t()` when the snapshot is built (`widgets/widget-snapshot.ts`) and shipped in it, for the same reason.
+- **One data shape.** `snapshotFromAppData` builds what both platforms draw. The root layout writes it and calls `refreshWidgets` whenever the data changes, so the widgets match the app.
+- **Icons.** Android draws the app's Ionicons through `IconWidget` (the font is registered in `app.json`). iOS uses the closest SF Symbols.
+- **No text fields.** Neither platform can host a text input in a widget. "Add a note" opens the `note/new` sheet with the keyboard up (`buddylevelup:///note/new`); the note is saved to the same on-device store and then shows in the widget and the Notes tab. Tapping a note opens `note/[id]`; the header opens the Notes tab.
+- **Light only.** Widgets set their own white or gradient background, so they do not follow the phone's dark mode.
+- **Avatar.** The widgets use `assets/images/widget-avatar.png` (240 px), not the 1.6 MB hero art: Android sends widget images to the launcher in memory and a large bitmap is dropped.
+
+## 15. Current status and known gaps
 
 The rules above apply to all new work. The app does not follow all of them yet:
 
@@ -263,4 +282,4 @@ The rules above apply to all new work. The app does not follow all of them yet:
 - **Buddy mascot** is placeholder art (see the comment in `buddy-mascot.tsx`).
 - **Hero banners** (`HeroAvatar`, used by Today and Player) temporarily use `assets/images/simoy-avatar.png` (1500 px, about 1.6 MB) instead of `BuddyMascot`. Replace it, and shrink the file, when the final mascot is ready.
 - **Google button** uses the Ionicons `logo-google` glyph in a brand-blue button. Before a store release, check it against Google's sign-in branding guidelines.
-- **Native icon and splash changes** appear only in a new development build, not in Expo Go.
+- **Native icon and splash changes** appear only in a new development build, not in Expo Go. The same goes for widget layout changes on iOS and any change to the widget plugin settings in `app.json`.

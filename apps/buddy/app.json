@@ -49,6 +49,9 @@
       [
         "react-native-android-widget",
         {
+          "fonts": [
+            "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf"
+          ],
           "widgets": [
             {
               "name": "BuddyWidget",
@@ -134,7 +137,8 @@
           "microphonePermission": "Angat uses the microphone so you can speak your notes. Speech is turned into text on your phone and the audio is never saved.",
           "speechRecognitionPermission": "Angat turns your speech into note text on your phone. Audio is not saved or sent anywhere."
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

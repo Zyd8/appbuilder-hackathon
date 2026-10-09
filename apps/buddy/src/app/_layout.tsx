@@ -12,6 +12,7 @@ import { retryPendingProfileSync } from '@/lib/auth';
 import { usePreviewStore } from '@/state/preview-store';
 import { radius } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
+import { refreshWidgets } from '@/widgets/refresh-widgets';
 import { snapshotFromAppData, writeWidgetSnapshot } from '@/widgets/widget-snapshot';
 
 /**
@@ -50,10 +51,18 @@ export default function RootLayout() {
     return () => subscription.remove();
   }, [syncNotes]);
 
+  // Keep the home-screen widgets in step with the app: write what they show, then redraw them.
+  // The store changes often (chat, rerolls), so only a real change to the widget data is pushed.
   useEffect(() => {
+    let lastSent = '';
     const syncWidgetSnapshot = () => {
-      const { profile, dailyQuests, notes } = usePreviewStore.getState();
-      writeWidgetSnapshot(snapshotFromAppData(profile, dailyQuests, notesForToday(notes, todayIso())));
+      const { account, profile, dailyQuests, notes } = usePreviewStore.getState();
+      const snapshot = snapshotFromAppData(profile, dailyQuests, notesForToday(notes, todayIso()), account?.displayName);
+      const serialized = JSON.stringify(snapshot);
+      if (serialized === lastSent) return;
+      lastSent = serialized;
+      writeWidgetSnapshot(snapshot);
+      refreshWidgets(snapshot);
     };
 
     syncWidgetSnapshot();
@@ -88,6 +97,7 @@ export default function RootLayout() {
           <Stack.Screen name="check-in" options={{ ...halfSheet, title: t('checkin.title') }} />
           <Stack.Screen name="stats" options={{ ...halfSheet, title: t('stats.breakdown') }} />
           <Stack.Screen name="quest/[id]" options={{ ...halfSheet, title: t('quests.details') }} />
+          <Stack.Screen name="note/new" options={{ ...halfSheet, title: t('note.new.title') }} />
           <Stack.Screen name="note/[id]" options={{ ...halfSheet, title: t('notes.edit') }} />
         </Stack>
         <ToastHost />

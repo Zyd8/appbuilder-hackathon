@@ -1,15 +1,22 @@
+import { readWidgetSnapshot, type WidgetSnapshot } from '../widget-snapshot';
+import { widgetTheme } from '../widget-theme';
+import { ensureWidgetAvatar } from './avatar';
 import { BuddyWidget } from './BuddyWidget';
 import { DailyQuestWidget } from './DailyQuestWidget';
 import { TodayNotesWidget } from './TodayNotesWidget';
-import { readWidgetSnapshot } from '../widget-snapshot';
+
+let avatarUri: Promise<string | undefined> | undefined;
+
+/** Push the snapshot into the three iOS widgets. WidgetKit then redraws them. */
+export async function updateIosWidgets(snapshot: WidgetSnapshot): Promise<void> {
+  avatarUri ??= ensureWidgetAvatar();
+  const avatar = await avatarUri;
+
+  BuddyWidget.updateSnapshot({ theme: widgetTheme, player: snapshot.player, avatarUri: avatar });
+  DailyQuestWidget.updateSnapshot({ theme: widgetTheme, quest: snapshot.quest, labels: snapshot.labels });
+  TodayNotesWidget.updateSnapshot({ theme: widgetTheme, notes: snapshot.notes, labels: snapshot.labels });
+}
 
 export function initializeBuddyWidget() {
-  const snapshot = readWidgetSnapshot();
-  const player = snapshot?.player ?? { level: 1, xp: 0, progress: 0, trend: [20, 35, 28, 52, 45, 68, 60] };
-  const quest = snapshot?.dailyQuest ?? { id: 'daily-quest', title: 'Take one small step', minutes: 5, done: false };
-  const notes = snapshot?.notes ?? [];
-
-  BuddyWidget.updateSnapshot(player);
-  DailyQuestWidget.updateSnapshot({ ...quest, questId: quest.id });
-  TodayNotesWidget.updateSnapshot({ notes });
+  void updateIosWidgets(readWidgetSnapshot());
 }
