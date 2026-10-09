@@ -4,7 +4,7 @@ import { QueueItem } from './fixtures';
 export type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string; mode?: string };
 
 const KEYS = {
-  messages: 'pocketops.messages.v1',
+  messages: 'pocketops.messages.v2',
   notes: 'pocketops.notes.v1',
   checklist: 'pocketops.checklist.v1',
   queue: 'pocketops.queue.v1',
