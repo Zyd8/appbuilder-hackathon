@@ -15,18 +15,18 @@ Buddy: Level Up combines two ideas:
 
 The two are one loop: **everyday tasks and quests live in the same list, and the companion is the thing that understands you well enough to pick quests that fit.**
 
-All core AI runs **on the device**. Onboarding answers, notes, check-ins, and progress stay on the phone. The app works fully offline after a one-time Google sign-in (changed by ADR-005: login is required before onboarding, and only name, email, and photo go to the account).
+All core AI runs **on the device**. Onboarding answers, notes, check-ins, and progress stay on the phone. A one-time **Google sign-in** is required before onboarding (ADR-005); only the account identity (name, email, photo) goes to the cloud. After that first sign-in, the app works fully offline.
 
 ### The one-sentence pitch
-"Answer a few questions, and a private on-device AI builds you a personal quest board for growing in ways that go beyond the gym, with no internet and no account."
+"Answer a few questions, and a private on-device AI builds you a personal quest board for growing in ways that go beyond the gym, and after one quick sign-in it all works with no internet."
 
 ### Who it is for
 Students, young professionals, and freelancers who want to grow (skills, discipline, creativity, relationships, money habits) but find generic habit trackers boring and self-help advice too vague.
 
 ### Product principles
 1. **Quests are personal and varied.** Never just "go to the gym". Quests come from the user's own answers and span many life areas.
-2. **Private by default.** Personal data never leaves the device unless the user shares something.
-3. **Offline-first.** Every core feature works with no connection.
+2. **Private by default.** Personal content (answers, quests, notes, reflections, chat) never leaves the device unless the user shares something. The only cloud data is the sign-in identity: name, email, photo.
+3. **Offline-first.** Every core feature works with no connection once the user has signed in once.
 4. **Encouraging, never punishing.** No penalty zones, no streak-shame, no "you failed" screens. Missing days pauses progress; it never removes it.
 5. **Honest AI.** The AI's analysis is a suggestion to reflect on, not a diagnosis. The user can edit or reject any insight or quest.
 6. **Small and focused.** One clear core loop done well beats a long feature list.
@@ -36,6 +36,8 @@ Students, young professionals, and freelancers who want to grow (skills, discipl
 ## 2. Core Loop
 
 ```
+Welcome → Google sign-in (one time)
+      ↓
 Onboarding questions
       ↓
 On-device AI analysis → Player Profile (stats, strengths, growth areas)
@@ -53,6 +55,26 @@ Daily check-in and weekly review → AI adjusts future quests
 ---
 
 ## 3. Features
+
+### 3.0 Sign-In (Google) — built
+Login is **required** before onboarding (ADR-005). There is no skip or "continue offline" option.
+
+**Flow:** Welcome → **Let's begin** → Sign-in screen → **Continue with Google** → onboarding questions. A user who is already signed in skips the sign-in screen.
+
+**How it works:**
+- Supabase Auth with the Google provider, opened in an **in-app browser** (`signInWithOAuth` + `expo-web-browser`) using **PKCE with S256**. Hermes has no WebCrypto, so `expo-crypto` fills in `crypto.getRandomValues` and `crypto.subtle.digest`.
+- After a successful login, the profile (id, email, display name, avatar URL, provider) is saved **locally first** (on-device `localStorage`, key `buddy.account.profile`), then **upserted** into Supabase `public.profiles` by id. The upsert is idempotent and safe to retry.
+- If the upsert fails (for example, connection drops), the local copy is kept and marked pending. The app retries on the next launch, and Settings shows "not saved to your account yet".
+- A returning user's cached session and profile let the app open fully offline.
+
+**States, in Buddy's voice:** idle, waiting for Google, cancelled ("No worries…"), no internet ("Connect once to sign in, then I work offline", with retry), error (with retry), and not configured (button disabled when Supabase env vars are missing).
+
+**Settings → Account:** shows name and email, a pending-sync note when relevant, and **Sign out**. Sign-out clears the local session and cached profile and returns to the welcome screen. It does not delete the cloud row.
+
+**Known limits:**
+- The first launch needs internet.
+- In Expo Go, login must run over `expo start --tunnel`, because Supabase rejects redirect URLs with an IP-address host (the LAN `exp://192.168.x.x` form).
+- The browser-based flow is planned to be replaced by native Google sign-in (`docs/todo/001-native-google-signin.md`).
 
 ### 3.1 Onboarding Assessment
 A friendly conversational questionnaire (about 5 minutes, skippable parts, saved progress).
@@ -157,7 +179,7 @@ Once a week (user-triggered or a gentle prompt), the on-device AI summarizes:
 ### 3.10 Share Progress as Story Cards
 - Generate 9:16 cards for level-ups, weekly review, a stat milestone, or a reflection the user chooses.
 - Preview shows exactly what will be shared; private notes, answers, and quest reflections are excluded unless the user adds them.
-- Export as an image through the system share sheet. No accounts, no in-app social network.
+- Export as an image through the system share sheet. No in-app social network; sharing never uses the account.
 
 ### 3.11 Local Insights (Optional, Post-MVP)
 Weather, traffic, news, and emergency-preparedness summaries when online, summarized by the on-device AI with sources and timestamps, cached for offline viewing. Kept out of the hackathon MVP to stay focused.
@@ -173,7 +195,9 @@ Bottom tabs:
 4. **Ask Buddy:** chat.
 5. **Notes & Tasks:** capture, tasks, notes, search.
 
-Settings (via Player or a gear icon): preferences, quest rules (blocked types, difficulty, physical quests on/off), notifications, privacy, AI model, data export and delete.
+Before the tabs: **Welcome → Sign in with Google → Onboarding questions → Analysis reveal → Today**. The entry route sends anyone who is not signed in, or not yet onboarded, to the welcome screen.
+
+Settings (via Player or a gear icon): **account (name, email, sign out)**, preferences, quest rules (blocked types, difficulty, physical quests on/off), notifications, privacy, AI model, data export and delete.
 
 ---
 
@@ -182,10 +206,12 @@ Settings (via Player or a gear icon): preferences, quest rules (blocked types, d
 | Layer | Default | Notes |
 |---|---|---|
 | App | **React Native (Expo with dev client) + TypeScript** | One codebase for Android and iOS. Widgets and the on-device model need native modules, so use a dev client rather than Expo Go. |
-| Navigation | Expo Router | |
+| Navigation | Expo Router | Routes include `onboarding/login` and `auth/callback`. |
 | State | Zustand | |
 | Database | **SQLite (expo-sqlite) + Drizzle ORM** | All data local. |
 | On-device LLM | Small (about 1–2B parameter) 4-bit model behind an `AIEngine` interface (MediaPipe LLM Inference on Android, llama.cpp / MLX bindings on iOS) | Prefer platform AI (Apple Foundation Models, Gemini Nano) where available. |
+| Auth (built) | **Supabase Auth, Google provider** via `expo-web-browser` + `expo-linking`, PKCE (S256) with an `expo-crypto` polyfill | Browser flow works in Expo Go; native sign-in planned. See ADR-005. |
+| Cloud data (built) | **Supabase Postgres**: `public.profiles` only | Identity only, owner-only RLS. User content stays local. |
 | Notifications | expo-notifications (local scheduling) | |
 | Animations | Reanimated + Lottie | Level-ups, XP bars. |
 | Charts | react-native-svg (radar chart for stats) | |
@@ -238,6 +264,10 @@ All IDs UUID; all tables have `created_at`, `updated_at`; soft-delete where rele
 
 Optional: database encryption at rest with a key in secure storage, behind a toggle.
 
+**Account (built, ADR-005):**
+- On device: the signed-in profile is cached in `localStorage` (`expo-sqlite/localStorage`, key `buddy.account.profile`) with `id, email, displayName, avatarUrl, provider, syncedAt?`. A missing `syncedAt` means the cloud upsert is still pending. The Supabase session is stored in the same on-device storage.
+- In the cloud (Supabase): `public.profiles` (id → `auth.users.id`, email, display_name, avatar_url, provider, created_at, updated_at). RLS allows select, insert and update only where `auth.uid() = id`; there is no delete policy. Migration: `apps/buddy/supabase/migrations/20261009120000_create_profiles.sql`.
+
 ---
 
 ## 8. Life Areas (Stats) — Default Set
@@ -274,6 +304,7 @@ Areas are user-editable: users can hide an area or add a custom one later.
 - A Google account is required before onboarding (ADR-005). Only identity data (name, email, photo) is stored in the cloud; no cloud storage of user content.
 - Analytics, if added, are opt-in, event-level only, and never include answers, notes, or reflections.
 - Just-in-time permission prompts (notifications first; location only if live insights are added).
+- Google client secret lives only in the Supabase dashboard. The app bundles only the Supabase URL and **publishable** key.
 - Settings → Privacy: view stored data, export everything as JSON, delete all data, delete the AI model, toggle encryption.
 - Store privacy labels must remain accurate (name, email, and photo are collected for the account per ADR-005; user content is not).
 
@@ -302,6 +333,7 @@ Areas are user-editable: users can hide an area or add a custom one later.
 ## 13. Non-Functional Requirements
 
 - Cold start under 2 seconds on a mid-range phone (model loads lazily).
+- First launch needs a network connection for sign-in. Every launch after that must work offline.
 - Every core screen works offline and without the model (Lite mode).
 - Localization-ready from day one (string files; locale-aware dates). English first; test whether the model handles the user's other languages well before promising them.
 - Targets: Android 10+ and iOS 17+ (adjust to the chosen model runtime).
@@ -312,6 +344,7 @@ Areas are user-editable: users can hide an area or add a custom one later.
 
 A narrow slice that shows the whole idea end to end, fully offline:
 
+0. **Google sign-in (built):** required before onboarding; profile saved locally and to Supabase `profiles`.
 1. **Onboarding:** 12–15 questions (tap-based plus one free-text).
 2. **On-device analysis:** Player Profile with 6 stats, 2 strengths, 2 growth areas, a title, and the reasoning shown.
 3. **Daily Quest Board:** 3 personalized quests from the curated library (about 60 quests for the MVP) with AI personalization of wording and a "why this quest" line.
@@ -320,9 +353,9 @@ A narrow slice that shows the whole idea end to end, fully offline:
 6. **Offline proof:** a visible "Running 100% on your device. No internet used" indicator, and a demo where airplane mode stays on.
 7. **Ask Buddy (minimal):** chat that answers using the player's profile and active quests.
 
-Explicitly cut from the MVP: widgets, live news and weather, story cards, weekly review, story arcs, accounts, sync.
+Explicitly cut from the MVP: widgets, live news and weather, story cards, weekly review, story arcs, and cloud sync of user content. Accounts are no longer cut: Google sign-in is in (ADR-005).
 
-**Demo script (about 3 minutes):** turn on airplane mode → onboarding → watch the AI analysis appear → open today's quests → complete one → level up → ask Buddy "what should I focus on this week?" and get a personalized answer.
+**Demo script (about 3 minutes):** sign in with Google while online (in Expo Go, run `npm run start:tunnel`) → turn on airplane mode → onboarding → watch the AI analysis appear → open today's quests → complete one → level up → ask Buddy "what should I focus on this week?" and get a personalized answer.
 
 ---
 
@@ -369,3 +402,5 @@ Explicitly cut from the MVP: widgets, live news and weather, story cards, weekly
 4. **Languages:** English only, or also Filipino or other languages at launch? Test small-model quality in each before promising it.
 5. **Quest library authoring:** who writes the first 60–150 quests, and what tone and areas should they cover?
 6. **Monetization (post-hackathon):** free, one-time purchase, or premium cosmetics and arcs?
+7. **Native Google sign-in:** when do we switch from the browser flow to `@react-native-google-signin` + `signInWithIdToken`? This needs a dev build and Android/iOS client IDs (`docs/todo/001-native-google-signin.md`).
+8. **Account deletion:** sign-out keeps the `profiles` row. How does a user delete their account and cloud data (Phase 7 export/delete)?
