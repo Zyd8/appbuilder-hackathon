@@ -33,6 +33,7 @@ export default function RootLayout() {
   const setAccount = usePreviewStore((s) => s.setAccount);
   const syncAssessment = usePreviewStore((s) => s.syncAssessment);
   const syncNotes = usePreviewStore((s) => s.syncNotes);
+  const syncProgress = usePreviewStore((s) => s.syncProgress);
 
   // A profile, answers, or notes saved while offline are upserted on the next launch.
   useEffect(() => {
@@ -41,15 +42,19 @@ export default function RootLayout() {
       .catch(() => {});
     syncAssessment();
     syncNotes();
-  }, [setAccount, syncAssessment, syncNotes]);
+    syncProgress();
+  }, [setAccount, syncAssessment, syncNotes, syncProgress]);
 
   // Coming back to the app: back up pending notes and pick up edits from other devices.
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') syncNotes();
+      if (state === 'active') {
+        syncNotes();
+        syncProgress();
+      }
     });
     return () => subscription.remove();
-  }, [syncNotes]);
+  }, [syncNotes, syncProgress]);
 
   // Keep the home-screen widgets in step with the app: write what they show, then redraw them.
   // The store changes often (chat, rerolls), so only a real change to the widget data is pushed.

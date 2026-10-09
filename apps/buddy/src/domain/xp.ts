@@ -43,6 +43,15 @@ export function grantXp(earnedToday: number, questXp: number): number {
   return Math.min(Math.max(0, questXp), room);
 }
 
+export type BambotStage = 1 | 2 | 3;
+
+/** Bambot grows up with the player: more XP (level) means a more mature form. */
+export function bambotStage(level: number): BambotStage {
+  if (level >= 10) return 3;
+  if (level >= 5) return 2;
+  return 1;
+}
+
 const RANK_BRACKETS: { minLevel: number; rank: QuestRank; title: string }[] = [
   { minLevel: 50, rank: 'S', title: 'S-Rank Legend' },
   { minLevel: 35, rank: 'A', title: 'A-Rank Trailblazer' },
