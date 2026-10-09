@@ -9,6 +9,7 @@ import { Card } from '@/components/card';
 import { Screen } from '@/components/screen';
 import { SectionHeader } from '@/components/section-header';
 import { t } from '@/i18n';
+import { signOut } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { usePreviewStore } from '@/state/preview-store';
 import { useTheme } from '@/theme/use-theme';
@@ -18,9 +19,46 @@ export default function Settings() {
   const allowPhysical = usePreviewStore((s) => s.allowPhysical);
   const setAllowPhysical = usePreviewStore((s) => s.setAllowPhysical);
   const reset = usePreviewStore((s) => s.reset);
+  const account = usePreviewStore((s) => s.account);
+  const clearAccount = usePreviewStore((s) => s.clearAccount);
 
   return (
     <Screen edges={['bottom']}>
+      {account ? (
+        <>
+          <SectionHeader title={t('settings.account')} />
+          <Card>
+            <View style={styles.row}>
+              <Ionicons name="person-circle-outline" size={22} color={colors.primary} />
+              <View style={styles.flex}>
+                <AppText variant="bodyStrong">
+                  {account.displayName ?? account.email ?? t('settings.account.signedIn')}
+                </AppText>
+                <AppText variant="caption" color="textMuted">
+                  {account.email ? `${t('settings.account.signedIn')} · ${account.email}` : t('settings.account.signedIn')}
+                </AppText>
+                {account.syncedAt ? null : (
+                  <AppText variant="caption" color="accent">
+                    {t('settings.account.pending')}
+                  </AppText>
+                )}
+              </View>
+            </View>
+            <Button
+              label={t('settings.account.signOut')}
+              variant="secondary"
+              icon="log-out-outline"
+              onPress={async () => {
+                await signOut();
+                clearAccount();
+                router.dismissAll();
+                router.replace('/onboarding');
+              }}
+            />
+          </Card>
+        </>
+      ) : null}
+
       <SectionHeader title={t('settings.quests')} />
       <Card style={styles.row}>
         <View style={styles.flex}>
