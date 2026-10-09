@@ -81,9 +81,11 @@ export class BuddyChatController {
     this.manager.retry(modelId);
   }
 
-  deleteModel(modelId: BuddyModelId, confirmed: boolean): Promise<void> {
+  async deleteModel(modelId: BuddyModelId, confirmed: boolean): Promise<void> {
     if (!this.manager) return Promise.reject(new Error('Model manager is unavailable'));
-    return this.manager.delete(modelId, confirmed);
+    if (!confirmed) throw new Error('Model deletion requires confirmation');
+    await this.engine.dispose();
+    await this.manager.delete(modelId, true);
   }
 
   async close(): Promise<void> {
