@@ -33,9 +33,9 @@ The brief's section 15 has been re-sequenced so the UI is visible first and Supa
 | **1** | **UI shell (done)** | All screens and navigation, theme, strings file, domain types, XP/level math with tests, seed onboarding questions and 24-quest starter library, Buddy mascot placeholder, optional Supabase client stub. Data is in-memory preview data. | Yes |
 | 2 | Local data + onboarding/profile | SQLite schema and repositories (profile, answers, stats, insights, preferences), saved onboarding progress, deterministic scoring from answers → Player Profile, editable stats/insights, "doesn't feel right" re-analysis, distress-language safety stop. State survives restart. | Yes |
 | 3 | Quest engine (no AI) | Quest library to ~60, rule-based selection (area, difficulty, energy, constraints, max one physical/day), quest validator, completion persistence, stat growth with diminishing returns, rerolls (2/day), feedback signals, rest tokens and gentle streaks, level-up moment. | Yes |
-| 4 | Check-in + Today | Persisted check-ins, energy-adaptive difficulty for tomorrow's quests, evening reflection, history/trends, Today merges quests + tasks. | Yes |
+| 4 | Check-in + Today | Persisted check-ins, energy-adaptive difficulty for tomorrow's quests, evening reflection, history/trends, Today merges quests + today's notes (ADR-007). | Yes |
 | 5 | On-device AI | `AIEngine` port, `llama.rn` adapter (from `apps/expo-go-sample`), model download manager, profile analysis + quest re-wording with schema validation and library fallback, Lite mode label, Ask Buddy with local context and confirm-before-execute action cards. | No: dev build |
-| 6 | Companion layer | Notes → "Organize with Buddy" task proposals, tasks with due dates/subtasks, local reminders (`expo-notifications`), nudge rules engine (max 3/day, 2h apart, quiet hours) with feedback. | Dev build |
+| 6 | Companion layer | Notes → "Organize with Buddy" due-date/priority proposals (notes replace tasks, ADR-007), local reminders (`expo-notifications`), nudge rules engine (max 3/day, 2h apart, quiet hours) with feedback. | Dev build |
 | 7 | Opt-in Supabase backup | Sync port + Supabase adapter, user-controlled toggle, idempotent append-only events, visible sync status/conflicts/failures, export and delete-all. | Dev build |
 | 8 | Growth and polish | Weekly review, achievements, story card export, accessibility and performance pass, Maestro end-to-end demo script. | Dev build |
 
@@ -43,7 +43,7 @@ The brief's section 15 has been re-sequenced so the UI is visible first and Supa
 
 **Built**
 - Expo Router app: `onboarding` (welcome → 4 grouped pages: Your day, Your goals, Where you are now (8 ratings on one screen), Your rules → analysis reveal; 14 questions total, age question dropped as unneeded personal data), tabs `today`, `quests`, `player`, `buddy`, `notes`, modals `settings` and `check-in`.
-- Working in-memory interactions: answer, skip, or go back a page in onboarding; complete a quest with an optional one-line reflection (XP granted with the 200/day cap, level-up toast); swap daily quests (2/day); check-in; toggle tasks; capture notes; send chat messages.
+- Working in-memory interactions: answer, skip, or go back a page in onboarding; complete a quest with an optional one-line reflection (XP granted with the 200/day cap, level-up toast); swap daily quests (2/day); check-in; add and check off notes; send chat messages.
 - Design tokens (light/dark), `t()` strings in `src/i18n/en.ts`, life-area icons and colors (always paired with text labels), radar chart (`react-native-svg`).
 - Domain: types for the brief's data model, `xp.ts` (rank XP, level curve, daily cap, rank titles) with 9 unit tests.
 - `src/lib/supabase.ts`: returns `null` unless env vars are set; Settings reflects that.

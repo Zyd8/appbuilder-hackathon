@@ -15,6 +15,8 @@ export const colors = {
   textMuted: '#4B5D8A',
   primary: '#0047D9',
   onPrimary: '#FFFFFF',
+  /** Empty part of a bar drawn on `primary` or the brand gradient. */
+  onPrimaryTrack: 'rgba(255, 255, 255, 0.28)',
   accent: '#006BB8',
   accentSoft: '#E3F3FF',
   success: '#0B6E99',

@@ -1,13 +1,28 @@
-import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DefaultTheme, Stack, ThemeProvider, type NativeStackNavigationOptions } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { View } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ToastHost } from '@/components/toast';
 import { t } from '@/i18n';
 import { retryPendingProfileSync } from '@/lib/auth';
 import { usePreviewStore } from '@/state/preview-store';
+import { radius } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
+
+/**
+ * Rises from the bottom and is only as tall as its content (about half the screen).
+ * Fixed detents can lay content out at full height, which hides the bottom actions.
+ * Content draws its own header (`components/sheet.tsx`).
+ */
+const halfSheet: NativeStackNavigationOptions = {
+  presentation: 'formSheet',
+  headerShown: false,
+  sheetAllowedDetents: 'fitToContents',
+  sheetCornerRadius: radius.lg + 4,
+  sheetGrabberVisible: false,
+};
 
 export default function RootLayout() {
   const { colors } = useTheme();
@@ -37,7 +52,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={navTheme}>
       <StatusBar style="dark" />
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <GestureHandlerRootView style={[styles.root, { backgroundColor: colors.background }]}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="onboarding" />
@@ -47,13 +62,15 @@ export default function RootLayout() {
             name="settings"
             options={{ presentation: 'modal', headerShown: true, title: t('settings.title') }}
           />
-          <Stack.Screen
-            name="check-in"
-            options={{ presentation: 'modal', headerShown: true, title: t('checkin.title') }}
-          />
+          <Stack.Screen name="check-in" options={{ ...halfSheet, title: t('checkin.title') }} />
+          <Stack.Screen name="quest/[id]" options={{ ...halfSheet, title: t('quests.details') }} />
         </Stack>
         <ToastHost />
-      </View>
+      </GestureHandlerRootView>
     </ThemeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+});

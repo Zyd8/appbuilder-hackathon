@@ -4,16 +4,18 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
 import { BrandLogo } from '@/components/brand-logo';
-import { BuddyMascot } from '@/components/buddy-mascot';
-import { Button } from '@/components/button';
-import { Card } from '@/components/card';
+import type { BuddyMood } from '@/components/buddy-mascot';
+import { CheckInPrompt } from '@/components/check-in-prompt';
 import { OnDeviceBadge } from '@/components/on-device-badge';
-import { ProgressBar } from '@/components/progress-bar';
-import { QuestCard } from '@/components/quest-card';
+import { DraggableList } from '@/components/draggable-list';
+import { NoteList } from '@/components/note-list';
+import { QUEST_ROW_HEIGHT, QuestRow } from '@/components/quest-row';
 import { Screen } from '@/components/screen';
 import { SectionHeader } from '@/components/section-header';
-import { TaskRow } from '@/components/task-row';
-import { PREVIEW_NUDGE, todayIso } from '@/data/preview';
+import { TodayBanner } from '@/components/today-banner';
+import { todayIso } from '@/data/preview';
+import { firstName, pickBuddyNudge, type BuddyNudge } from '@/domain/buddy-nudge';
+import { notesForToday } from '@/domain/notes';
 import { levelFromTotalXp } from '@/domain/xp';
 import { t, type StringKey } from '@/i18n';
 import { usePreviewStore } from '@/state/preview-store';
@@ -27,59 +29,73 @@ function greetingKey(): StringKey {
   return 'today.greeting.evening';
 }
 
+function nudgeText(nudge: BuddyNudge): string {
+  switch (nudge.kind) {
+    case 'allDone':
+      return t('today.allDone');
+    case 'lowEnergy':
+      return nudge.goal ? t('nudge.lowEnergy.goal', { goal: t(`goalPhrase.${nudge.goal}`) }) : t('nudge.lowEnergy');
+    case 'goalQuest':
+      return t('nudge.goalQuest', { quest: nudge.questTitle, minutes: nudge.minutes, goal: t(`goalPhrase.${nudge.goal}`) });
+    case 'goal':
+      return t(`nudge.goal.${nudge.goal}`);
+    default:
+      return t('nudge.general');
+  }
+}
+
+const NUDGE_MOOD: Record<BuddyNudge['kind'], BuddyMood> = {
+  allDone: 'celebrating',
+  lowEnergy: 'sleepy',
+  goalQuest: 'happy',
+  goal: 'happy',
+  general: 'happy',
+};
+
 export default function Today() {
   const { colors } = useTheme();
+  const account = usePreviewStore((s) => s.account);
+  const answers = usePreviewStore((s) => s.answers);
   const profile = usePreviewStore((s) => s.profile);
   const quests = usePreviewStore((s) => s.dailyQuests);
-  const tasks = usePreviewStore((s) => s.tasks);
+  const notes = usePreviewStore((s) => s.notes);
+  const addNote = usePreviewStore((s) => s.addNote);
   const checkIn = usePreviewStore((s) => s.checkIn);
   const rerollsLeft = usePreviewStore((s) => s.rerollsLeft);
+  const reorderDailyQuests = usePreviewStore((s) => s.reorderDailyQuests);
   const level = levelFromTotalXp(profile.totalXp);
-  const todaysTasks = tasks.filter((task) => !task.due || task.due === todayIso());
-  const allDone = quests.every((q) => q.status === 'done');
+  const today = todayIso();
+  const todaysNotes = notesForToday(notes, today);
+  const name = firstName(account?.displayName) ?? firstName(profile.displayName) ?? profile.displayName;
+  const day = Math.floor(Date.parse(today) / 86_400_000);
+  const nudge = pickBuddyNudge({ answers, quests, checkIn, day });
 
   return (
     <Screen>
       <View style={styles.brandRow}>
         <BrandLogo variant="mark" height={28} />
-        <OnDeviceBadge />
-      </View>
-      <View style={styles.headerRow}>
-        <View style={styles.flex}>
-          <AppText variant="display">{t(greetingKey(), { name: profile.displayName })}</AppText>
-          <AppText color="textMuted">
-            {t('player.level', { level: level.level })} · {profile.title}
-          </AppText>
+        <View style={styles.brandActions}>
+          <OnDeviceBadge />
+          <Pressable accessibilityRole="button" accessibilityLabel={t('player.settings')} onPress={() => router.push('/settings')} hitSlop={12}>
+            <Ionicons name="settings-outline" size={24} color={colors.textMuted} />
+          </Pressable>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('player.settings')} onPress={() => router.push('/settings')} hitSlop={12}>
-          <Ionicons name="settings-outline" size={24} color={colors.textMuted} />
-        </Pressable>
       </View>
-      <ProgressBar
+
+      <TodayBanner
+        greeting={t(greetingKey(), { name })}
+        level={level.level}
+        title={profile.title}
         progress={level.progress}
-        color={colors.accent}
-        accessibilityLabel={t('player.xp', { current: level.xpIntoLevel, next: level.xpForNext })}
+        xpLabel={t('player.xp', { current: level.xpIntoLevel, next: level.xpForNext })}
+        message={nudgeText(nudge)}
+        mood={NUDGE_MOOD[nudge.kind]}
       />
 
-      {checkIn ? (
-        <Card tone="muted" style={styles.row}>
-          <Ionicons name="checkmark-circle-outline" size={22} color={colors.success} />
-          <AppText variant="bodyStrong">{t('today.checkin.done', { energy: t(`energy.${checkIn.energy}`).toLowerCase() })}</AppText>
-        </Card>
-      ) : (
-        <Card tone="status">
-          <View style={styles.row}>
-            <BuddyMascot mood="happy" size={56} />
-            <View style={styles.flex}>
-              <AppText variant="title">{t('today.checkin.title')}</AppText>
-              <AppText variant="caption" color="textMuted">
-                {t('today.checkin.body')}
-              </AppText>
-            </View>
-          </View>
-          <Button label={t('today.checkin.cta')} icon="pulse" onPress={() => router.push('/check-in')} />
-        </Card>
-      )}
+      <CheckInPrompt
+        doneLabel={checkIn ? t('today.checkin.done', { energy: t(`energy.${checkIn.energy}`).toLowerCase() }) : undefined}
+        onPress={() => router.push('/check-in')}
+      />
 
       <SectionHeader
         title={t('today.quests')}
@@ -89,39 +105,48 @@ export default function Today() {
           </AppText>
         }
       />
-      {allDone ? (
-        <Card tone="muted" style={styles.row}>
-          <BuddyMascot mood="celebrating" size={48} />
-          <AppText variant="bodyStrong" style={styles.flex}>
-            {t('today.allDone')}
-          </AppText>
-        </Card>
-      ) : null}
-      {quests.map((quest) => (
-        <QuestCard key={quest.id} quest={quest} canSwap />
-      ))}
+      <View style={styles.questList}>
+        <DraggableList
+          items={quests}
+          rowHeight={QUEST_ROW_HEIGHT}
+          renderItem={(quest, dragging) => <QuestRow quest={quest} dragging={dragging} />}
+          labelFor={(quest) =>
+            `${quest.title}, ${t('quests.rank', { rank: quest.rank })}, ${t('quests.minutes', { count: quest.estMinutes })}${
+              quest.status === 'done' ? `, ${t('quests.completed')}` : ''
+            }`
+          }
+          onPress={(quest) => router.push({ pathname: '/quest/[id]', params: { id: quest.id } })}
+          onReorder={reorderDailyQuests}
+        />
+        <AppText variant="caption" color="textMuted" style={styles.hint}>
+          {t('quests.dragHint')}
+        </AppText>
+      </View>
 
-      <SectionHeader title={t('today.tasks')} />
-      <Card>
-        {todaysTasks.length === 0 ? (
-          <AppText color="textMuted">{t('today.tasks.empty')}</AppText>
-        ) : (
-          todaysTasks.map((task) => <TaskRow key={task.id} task={task} />)
-        )}
-      </Card>
-
-      <SectionHeader title={t('today.nudge')} />
-      <Card tone="muted" style={styles.row}>
-        <Ionicons name="bulb-outline" size={22} color={colors.accent} />
-        <AppText style={styles.flex}>{PREVIEW_NUDGE}</AppText>
-      </Card>
+      <SectionHeader
+        title={t('today.notes')}
+        right={
+          todaysNotes.length > 0 ? (
+            <AppText variant="caption" color="textMuted">
+              {t('today.notes.progress', { done: todaysNotes.filter((note) => note.done).length, total: todaysNotes.length })}
+            </AppText>
+          ) : null
+        }
+      />
+      <NoteList
+        notes={todaysNotes}
+        today={today}
+        emptyText={t('today.notes.empty')}
+        addPlaceholder={t('today.notes.add')}
+        onAdd={(body) => addNote(body, { dueToday: true })}
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  flex: { flex: 1 },
+  brandActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  questList: { gap: spacing.sm },
+  hint: { textAlign: 'center' },
 });

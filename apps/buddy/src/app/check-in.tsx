@@ -5,7 +5,7 @@ import { StyleSheet, TextInput, View } from 'react-native';
 import { AppText } from '@/components/app-text';
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
-import { Screen } from '@/components/screen';
+import { Sheet } from '@/components/sheet';
 import { SectionHeader } from '@/components/section-header';
 import type { Energy, Mood } from '@/domain/types';
 import { t } from '@/i18n';
@@ -26,7 +26,23 @@ export default function CheckInScreen() {
   const [focusText, setFocusText] = useState(existing?.focusText ?? '');
 
   return (
-    <Screen edges={['bottom']}>
+    <Sheet
+      title={t('checkin.title')}
+      footer={
+        <>
+          <Button
+            label={t('checkin.save')}
+            icon="checkmark"
+            onPress={() => {
+              saveCheckIn({ mood, energy, focusText: focusText.trim() || undefined });
+              router.back();
+            }}
+          />
+          <AppText variant="caption" color="textMuted" style={styles.center}>
+            {t('checkin.privacy')}
+          </AppText>
+        </>
+      }>
       <SectionHeader title={t('checkin.mood')} />
       <View style={styles.wrapRow}>
         {MOODS.map((m) => (
@@ -54,18 +70,7 @@ export default function CheckInScreen() {
         style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
       />
 
-      <Button
-        label={t('checkin.save')}
-        icon="checkmark"
-        onPress={() => {
-          saveCheckIn({ mood, energy, focusText: focusText.trim() || undefined });
-          router.back();
-        }}
-      />
-      <AppText variant="caption" color="textMuted">
-        {t('checkin.privacy')}
-      </AppText>
-    </Screen>
+    </Sheet>
   );
 }
 
@@ -73,6 +78,7 @@ const styles = StyleSheet.create({
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   row: { flexDirection: 'row', gap: spacing.sm },
   flex: { flex: 1 },
+  center: { textAlign: 'center' },
   input: {
     borderWidth: 1,
     borderRadius: radius.md,

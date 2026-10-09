@@ -56,6 +56,7 @@ The app is **light-only**: white background and shades of blue taken from the lo
 | `textMuted` | `#4B5D8A` | Secondary text, captions, inactive icons |
 | `primary` | `#0047D9` | The brand blue: primary buttons, selection, active tab, links, progress |
 | `onPrimary` | `#FFFFFF` | Text and icons on `primary` or the brand gradient |
+| `onPrimaryTrack` | `rgba(255, 255, 255, 0.28)` | Empty track of a progress bar on `primary` or the brand gradient (fill it with `onPrimary`) |
 | `accent` | `#006BB8` | Sky-blue accent: XP, levels, rewards, tips |
 | `accentSoft` | `#E3F3FF` | Background behind `accent` content |
 | `success` | `#0B6E99` | Done, saved, private/secure states |
@@ -143,10 +144,16 @@ Use the shared component when one exists. Do not restyle it per screen.
 | `PulseRings` | `components/pulse-rings.tsx` | Rippling blue rings for "working" and intro moments (splash, analysis). `loop={false}` for one-time intros. |
 | `Chip` | `components/chip.tsx` | Compact pill toggles. For question answers, prefer option tiles. |
 | `Segmented` | `components/segmented.tsx` | Two-to-four-way view switches. |
-| `ProgressBar` | `components/progress-bar.tsx` | XP and stat bars. `primary` by default, `accent` for XP, the area color for stats. |
+| `ProgressBar` | `components/progress-bar.tsx` | XP and stat bars. `primary` by default, `accent` for XP, the area color for stats. On the brand gradient, use `color={colors.onPrimary}` with `trackColor={colors.onPrimaryTrack}`. |
 | `SectionHeader` | `components/section-header.tsx` | Overline section label with an optional right-side action. |
 | `OnDeviceBadge` | `components/on-device-badge.tsx` | Shows that work runs on the device. |
 | `Toast` | `components/toast.tsx` | Short, non-blocking confirmations. |
+| `TodayBanner` | `components/today-banner.tsx` | Today's hero (the screen's one `GradientPanel`). Buddy fills the left side, standing on the panel's bottom edge with no backing, and bobs. On the right: a one-line greeting with the first name (shrinks to fit), a level block (white circular "LV n" badge beside the title, a thin `onPrimary` XP bar on an `onPrimaryTrack` track, and the XP count), and Buddy's goal-aligned line in a white speech bubble whose tail points back at Buddy. The line comes from `domain/buddy-nudge.ts`. |
+| `CheckInPrompt` | `components/check-in-prompt.tsx` | One-row daily check-in (`surfaceAlt`, radius `lg`). After check-in it becomes a `successSoft` confirmation row. Enters with a spring `FadeInLeft`; Reduce Motion gets a 200 ms fade. |
+| `Sheet` | `components/sheet.tsx` | Body of a sheet route (`presentation: 'formSheet'`, `sheetAllowedDetents: 'fitToContents'`, see `halfSheet` in `app/_layout.tsx`). The sheet is as tall as its content, so nothing inside may use `flex: 1` vertically. Draws a grabber, an optional `primary` `eyebrow`, the `title`, and a 40 pt close button on `surfaceAlt`; `footer` holds the actions. Used by quest details (`QuestDetails`) and the daily check-in. |
+| `QuestRow` | `components/quest-row.tsx` | Compact 68 pt quest summary: rank tile (a check when done), one-line title, area · minutes · XP, and a drag handle. The full `QuestCard` opens in the `quest/[id]` modal. |
+| `DraggableList` | `components/draggable-list.tsx` | Fixed-height list. Tap opens a row; hold for 280 ms, then drag to reorder (the lifted row scales to 1.03 with a `primary` border). Screen readers get "Move up" / "Move down" actions. Reduce Motion skips the slide and scale. |
+| `NoteList` | `components/note-list.tsx` | Checkable notes in one card (Today and Notes tabs, ADR-007): an add row on top (multi-line on Notes), round checkboxes (a `danger` ring and "High" pill for high priority) that pop when checked, a due date when it is not today, and finished notes sliding to the bottom (`LinearTransition`). Reduce Motion skips the pop and slide. |
 | `BuddyMascot` | `components/buddy-mascot.tsx` | Moods: `happy`, `thinking`, `celebrating`, `sleepy`. Match the mood to the state (loading → thinking, offline → sleepy, success → celebrating). |
 
 **Patterns currently local to `onboarding/questions.tsx`.** Move them to `components/` the first time another screen needs them:
@@ -238,7 +245,9 @@ Offline is a normal state, not an error. Make it visible and calm:
 The rules above apply to all new work. The app does not follow all of them yet:
 
 - **Fully on-system:** the splash (`app/index.tsx`), the landing page (`onboarding/index.tsx`), the questions (`onboarding/questions.tsx`), and the analysis screen (`onboarding/analysis.tsx`).
-- **Colors updated, layout not yet restyled:** Today, Quests, Player, Ask Buddy, Notes, Settings, and Check-in. They use the new tokens through the shared components but have not adopted the eyebrow, hero, and motion patterns.
+- **Today** has the banner, compact check-in, compact draggable quest rows, and today's notes (`NoteList`). The Quests tab still shows full `QuestCard`s.
+- **Colors updated, layout not yet restyled:** Quests, Player, Ask Buddy, Notes, Settings, and Check-in. They use the new tokens through the shared components but have not adopted the eyebrow, hero, and motion patterns.
 - **Buddy mascot** is placeholder art (see the comment in `buddy-mascot.tsx`).
+- **Today banner** temporarily uses `assets/images/simoy-avatar.png` (1500 px, about 1.6 MB) instead of `BuddyMascot`. Replace it, and shrink the file, when the final mascot is ready.
 - **Google button** uses the Ionicons `logo-google` glyph in a brand-blue button. Before a store release, check it against Google's sign-in branding guidelines.
 - **Native icon and splash changes** appear only in a new development build, not in Expo Go.
