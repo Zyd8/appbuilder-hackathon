@@ -57,6 +57,7 @@ export default function Notes() {
         <NoteList
           notes={notes}
           today={today}
+          showAllDates
           emptyText={t('notes.empty')}
           addPlaceholder={t('notes.capture.placeholder')}
           onAdd={(body, date) => addNote(body, { date })}
