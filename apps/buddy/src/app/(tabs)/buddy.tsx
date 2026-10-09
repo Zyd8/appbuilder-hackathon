@@ -8,6 +8,7 @@ import { Chip } from '@/components/chip';
 import { OnDeviceBadge } from '@/components/on-device-badge';
 import { Screen } from '@/components/screen';
 import type { ChatMessage } from '@/domain/types';
+import { ATTACHMENT_LIMITS, BUDDY_MODEL_LIST } from '@/features/buddy/types';
 import { t } from '@/i18n';
 import { usePreviewStore } from '@/state/preview-store';
 import { radius, spacing } from '@/theme/tokens';
@@ -20,8 +21,16 @@ export default function AskBuddy() {
   const chat = usePreviewStore((s) => s.chat);
   const typing = usePreviewStore((s) => s.buddyTyping);
   const sendChat = usePreviewStore((s) => s.sendChat);
+  const selectedModelId = usePreviewStore((s) => s.selectedModelId);
+  const setModel = usePreviewStore((s) => s.setModel);
+  const pendingAttachments = usePreviewStore((s) => s.pendingAttachments);
+  const addAttachments = usePreviewStore((s) => s.addAttachments);
+  const removeAttachment = usePreviewStore((s) => s.removeAttachment);
+  const chatError = usePreviewStore((s) => s.chatError);
+  const clearChatError = usePreviewStore((s) => s.clearChatError);
   const [draft, setDraft] = useState('');
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const attachmentsFull = pendingAttachments.length >= ATTACHMENT_LIMITS.maxPerMessage;
 
   const send = (text: string) => {
     sendChat(text);
@@ -37,6 +46,19 @@ export default function AskBuddy() {
             <AppText variant="title">{t('buddy.title')}</AppText>
             <OnDeviceBadge />
           </View>
+        </View>
+
+        <View style={styles.modelRow} accessibilityLabel={t('buddy.model')}>
+          {BUDDY_MODEL_LIST.map((model) => (
+            <Chip
+              key={model.id}
+              size="compact"
+              label={model.label}
+              selected={model.id === selectedModelId}
+              accessibilityLabel={`${model.label} (${model.sizeLabel}). ${model.note}`}
+              onPress={() => setModel(model.id)}
+            />
+          ))}
         </View>
 
         <FlatList
@@ -69,7 +91,56 @@ export default function AskBuddy() {
           }
         />
 
+        {chatError ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${chatError}. ${t('buddy.modelUnavailable')}`}
+            onPress={clearChatError}
+            style={[styles.error, { borderColor: colors.danger, backgroundColor: colors.surface }]}>
+            <AppText variant="caption" color="danger">
+              {chatError}
+            </AppText>
+          </Pressable>
+        ) : null}
+
+        {pendingAttachments.length ? (
+          <View style={styles.attachmentRow}>
+            {pendingAttachments.map((attachment) => (
+              <Pressable
+                key={attachment.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${t('buddy.removeAttachment')}: ${attachment.name}`}
+                onPress={() => removeAttachment(attachment.id)}
+                style={[styles.attachmentChip, { borderColor: colors.border, backgroundColor: colors.surfaceAlt }]}>
+                <Ionicons
+                  name={
+                    attachment.kind === 'image'
+                      ? 'image-outline'
+                      : attachment.kind === 'audio'
+                        ? 'musical-notes-outline'
+                        : 'document-outline'
+                  }
+                  size={14}
+                  color={colors.textMuted}
+                />
+                <AppText variant="caption" color="textMuted" numberOfLines={1} style={styles.attachmentName}>
+                  {attachment.status === 'ready' ? attachment.name : `${attachment.name} (${t('buddy.attachmentUnsupported')})`}
+                </AppText>
+                <Ionicons name="close" size={14} color={colors.textMuted} />
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
         <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('buddy.attach')}
+            disabled={typing || attachmentsFull}
+            onPress={() => void addAttachments()}
+            style={[styles.attach, { borderColor: colors.border, opacity: typing || attachmentsFull ? 0.4 : 1 }]}>
+            <Ionicons name="attach" size={22} color={colors.text} />
+          </Pressable>
           <TextInput
             value={draft}
             onChangeText={setDraft}
@@ -106,8 +177,20 @@ function Bubble({ message }: { message: ChatMessage }) {
             ? { backgroundColor: colors.primary }
             : { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 },
         ]}>
+        {message.attachments?.length ? (
+          <AppText
+            variant="caption"
+            style={[styles.bubbleAttachments, { color: mine ? colors.onPrimary : colors.textMuted }]}>
+            {message.attachments.map((attachment) => attachment.name).join(' · ')}
+          </AppText>
+        ) : null}
         <AppText style={{ color: mine ? colors.onPrimary : colors.text }}>{message.text}</AppText>
       </View>
+      {message.generationState === 'failed' ? (
+        <AppText variant="caption" color="danger">
+          {t('buddy.modelUnavailable')}
+        </AppText>
+      ) : null}
       {message.contextUsed?.length ? (
         <AppText variant="caption" color="textMuted">
           {t('buddy.contextUsed', { items: message.contextUsed.join(', ') })}
@@ -127,21 +210,61 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  modelRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+  },
   list: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
   empty: { alignItems: 'center', gap: spacing.lg, marginTop: spacing.xxl },
   center: { textAlign: 'center' },
   suggestions: { gap: spacing.sm, alignSelf: 'stretch' },
   typing: { marginTop: spacing.sm },
+  error: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+  },
+  attachmentRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  attachmentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    maxWidth: '100%',
+  },
+  attachmentName: { maxWidth: 180 },
   bubbleWrap: { maxWidth: '85%', gap: spacing.xs },
   left: { alignSelf: 'flex-start' },
   right: { alignSelf: 'flex-end', alignItems: 'flex-end' },
   bubble: { borderRadius: radius.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  bubbleAttachments: { marginBottom: spacing.xs },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: spacing.sm,
     padding: spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  attach: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   input: {
     flex: 1,

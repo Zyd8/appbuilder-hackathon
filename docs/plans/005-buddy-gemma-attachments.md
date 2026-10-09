@@ -1,6 +1,6 @@
-# Buddy Gemma 3n Chat + Attachments Integration Plan
+# Buddy Gemma Chat + Attachments Integration Plan
 
-- Status: proposed
+- Status: implemented (native build + device verification pending)
 - Branch: `feat/buddy-gemma-attachments`
 - Base SHA: `5694238667f14e238005d784e31f747fc497a601`
 - Planner: GPT-5.6 Sol via `openai-codex` (planning session `20261009_164227_b605db`)
@@ -8,7 +8,7 @@
 
 ## Goal
 
-Replace the Buddy chatbot’s preview timer reply with a local Gemma 3n runtime. Default to the user-facing `Gemma 3n Default (E2B)` option, allow switching to `Gemma 3n Pro (E4B)`, and support local file, image, and audio attachments without cloud inference or broad UI refactoring.
+Replace the Buddy chatbot’s preview timer reply with a local Gemma 4 runtime. Default to the user-facing `Gemma Default (Gemma 4 E2B)` option, allow switching to `Gemma Pro (Gemma 4 E4B)`, and support local file, image, and audio attachments without cloud inference or broad UI refactoring.
 
 The chatbot page is `apps/buddy/src/app/(tabs)/buddy.tsx`. It currently uses the preview Zustand store’s `sendChat` placeholder reply. The app uses Expo SDK 57, Expo Router, Zustand, Expo SQLite, and the Angat design system.
 
@@ -17,8 +17,8 @@ The chatbot page is `apps/buddy/src/app/(tabs)/buddy.tsx`. It currently uses the
 - Keep the existing Buddy screen, `AppText`, `Screen`, theme tokens, mascot, bubbles, typing state, and navigation.
 - Add one small feature module under `apps/buddy/src/features/buddy/` rather than introducing a new state framework or data layer.
 - Keep one native model loaded at a time.
-- Default model: Gemma 3n Default (E2B) instruction-tuned LiteRT-LM artifact.
-- Optional model: Gemma 3n Pro (E4B) instruction-tuned LiteRT-LM artifact.
+- Default model: Gemma Default (Gemma 4 E2B) instruction-tuned LiteRT-LM artifact.
+- Optional model: Gemma Pro (Gemma 4 E4B) instruction-tuned LiteRT-LM artifact.
 - No cloud chat API, cloud transcription, RAG/vector database, tools, or background inference.
 - No silent model fallback. If the selected model is unavailable, show the actionable error.
 
@@ -75,7 +75,7 @@ Model states shown in the UI:
 - Generating
 - Failed
 
-`Gemma 3n Default (E2B)` is selected initially; `Gemma 3n Pro (E4B)` requires explicit selection and installation. Do not resolve `latest` at runtime: pin official artifact URLs, revisions, licenses, and SHA-256 checksums in the catalog.
+`Gemma Default (Gemma 4 E2B)` is selected initially; `Gemma Pro (Gemma 4 E4B)` requires explicit selection and installation. Do not resolve `latest` at runtime: pin official artifact URLs, revisions, licenses, and SHA-256 checksums in the catalog.
 
 ## Attachments
 
@@ -88,7 +88,7 @@ Use the smallest practical picker surface:
 
 Supported first-slice content:
 
-- Images accepted by the pinned Gemma 3n LiteRT-LM model.
+- Images accepted by the pinned Gemma 4 LiteRT-LM model.
 - WAV/MP3 audio accepted by that model/runtime.
 - `.txt`, `.md`, `.json`, and `.csv` as locally extracted text.
 - Other files can be retained as attachments but must display `unsupported for model input`; do not pretend arbitrary PDF/DOCX/archive parsing works.
@@ -147,7 +147,7 @@ Expo Go is not a valid native-model test target. Use a development build/native 
 
 1. Baseline: run Buddy typecheck/lint/tests; record branch/base and inspect existing dirty state.
 2. Contracts: add model catalog, attachment types, native bridge interface, persistence shape, and unit tests.
-3. Model install: add `Gemma 3n Default (E2B)` installation first, then optional `Gemma 3n Pro (E4B)` download/checksum/ready states.
+3. Model install: add `Gemma Default (Gemma 4 E2B)` installation first, then optional `Gemma Pro (Gemma 4 E4B)` download/checksum/ready states.
 4. Android text: wire the default E2B generation into the existing Buddy chat and stream typing output.
 5. Attachments: add file/image/audio picker chips, app-owned copies, limits, and supported media input.
 6. Model switching: add E4B selection, cancellation, unload/load lifecycle, and visible failures.
@@ -156,8 +156,8 @@ Expo Go is not a valid native-model test target. Use a development build/native 
 
 ## Acceptance criteria
 
-- Buddy opens with `Gemma 3n Default (E2B)` selected by default.
-- `Gemma 3n Pro (E4B)` is selectable and never silently substitutes the default model.
+- Buddy opens with `Gemma Default (Gemma 4 E2B)` selected by default.
+- `Gemma Pro (Gemma 4 E4B)` is selectable and never silently substitutes the default model.
 - The selected model/runtime and installation state are visible.
 - Text chat runs fully offline after model installation.
 - Typing/streaming, stop, error, and model-switch states work.
@@ -179,3 +179,29 @@ Expo Go is not a valid native-model test target. Use a development build/native 
 - No simultaneous models.
 - No RAG/vector search, tools, web search, or cloud fallback.
 - No claim of iOS support before the Swift native bridge is tested.
+
+## Execution status
+
+Implemented on `feat/buddy-gemma-attachments`:
+
+- Model catalog with `Gemma Default (Gemma 4 E2B)` as the default and `Gemma Pro (Gemma 4 E4B)` as the opt-in alternative.
+- Native LiteRT-LM Expo module at `apps/buddy/modules/pocketops-litert-lm` with `loadModel`, `generate(prompt, images, audio)`, `unload`, and `isLoaded`. Android is implemented against `litertlm-android`; iOS throws an explicit "not available in this build" error rather than pretending.
+- Lazy native import so the shared app still boots where the module is absent (Expo Go, web) and reports the model as unavailable.
+- `sendChat` in `preview-store.ts` now calls the on-device model instead of the 900 ms placeholder timer, appends a real Buddy reply, and surfaces failures as both an inline error and a failed message.
+- Attachment picker (`expo-document-picker`) with local validation and limits: 3 per message, 10 MB images, 25 MB audio, 10 MB files, 100k extracted characters. `.txt`/`.md`/`.json`/`.csv` are read locally via `expo-file-system`; other types stay attached and are labelled as not model-readable.
+- Buddy screen keeps the existing Angat design system and adds a model selector, attachment chips, an error banner, and an attach button.
+- New unit tests for model selection, prompt building, turn capping, and attachment routing.
+
+Gates run in `apps/buddy`: `npx tsc --noEmit` (0 errors), `npx expo lint` (0 errors), `npx jest` (7 suites, 57 tests passing).
+
+Not yet done (do not treat as verified):
+
+- No development-build APK has been produced or installed for this branch, so on-device generation has not been exercised.
+- No `Gemma4-*.litertlm` artifact has been installed on a device, and the pinned artifact URLs/checksums are still placeholders in the catalog.
+- Chat history and staged attachments are still in-memory, consistent with the existing preview store; restart persistence is not implemented.
+- iOS has no real LiteRT-LM bridge.
+- Images and audio are passed to the native layer as file paths, but multimodal prompt construction has not been tested against a real model.
+
+## Model decision note
+
+This plan originally targeted Gemma 3n E2B/E4B. It was updated to Gemma 4 E2B/E4B because Gemma 4 is the newer mobile/edge-targeted family. Nothing in the architecture depends on the family: the catalog, the artifact paths, and the native adapter are the only family-specific parts.

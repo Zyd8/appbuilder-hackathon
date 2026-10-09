@@ -153,6 +153,11 @@ export const en = {
   'buddy.previewReply':
     'This is a preview reply. Once the on-device model is installed, I’ll answer using your profile and active quests, and nothing will leave your phone.',
   'buddy.thinking': 'Buddy is thinking…',
+  'buddy.model': 'Model',
+  'buddy.attach': 'Attach a file',
+  'buddy.attachmentUnsupported': 'Not readable by the model',
+  'buddy.removeAttachment': 'Remove attachment',
+  'buddy.modelUnavailable': 'The on-device model is not available in this build.',
 
   'notes.capture.placeholder': 'Capture a thought or a to-do…',
   'notes.add': 'Add note',

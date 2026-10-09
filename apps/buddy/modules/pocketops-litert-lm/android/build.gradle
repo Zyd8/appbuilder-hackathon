@@ -1,0 +1,26 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.pocketopslitertlm'
+version = '0.1.0'
+
+dependencies {
+  implementation 'com.google.ai.edge.litertlm:litertlm-android:0.16.1'
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+  kotlinOptions.freeCompilerArgs += ['-Xskip-metadata-version-check']
+}
+
+android {
+  namespace "expo.modules.pocketopslitertlm"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}

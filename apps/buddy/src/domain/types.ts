@@ -93,6 +93,9 @@ export interface ChatMessage {
   text: string;
   /** Local context Buddy used to answer, shown to the user. */
   contextUsed?: string[];
+  attachments?: import('@/features/buddy/types').ChatAttachment[];
+  modelId?: import('@/features/buddy/types').BuddyModelId;
+  generationState?: 'complete' | 'stopped' | 'failed';
   createdAt: string;
 }
 

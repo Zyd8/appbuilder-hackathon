@@ -36,7 +36,15 @@ import type {
 import { applyOrder } from '@/domain/reorder';
 import { cleanNoteBody } from '@/domain/notes';
 import { grantXp, levelFromTotalXp } from '@/domain/xp';
-import { t } from '@/i18n';
+import { pickBuddyAttachments } from '@/features/buddy/attachment-service';
+import { generateBuddyReply } from '@/features/buddy/chat-service';
+import { buildBuddyPrompt } from '@/features/buddy/prompt-builder';
+import {
+  DEFAULT_BUDDY_MODEL,
+  buddyModel,
+  type BuddyModelId,
+  type ChatAttachment,
+} from '@/features/buddy/types';
 import { loadCachedProfile } from '@/lib/account-storage';
 import { loadAssessment, writeAssessment } from '@/lib/assessment-storage';
 import { restoreAssessment, syncPendingAssessment } from '@/lib/assessment-sync';
@@ -66,6 +74,12 @@ interface PreviewState {
   notes: Note[];
   chat: ChatMessage[];
   buddyTyping: boolean;
+  /** Model the user picked; Gemma Default unless they switch. */
+  selectedModelId: BuddyModelId;
+  /** Attachments staged for the next message. */
+  pendingAttachments: ChatAttachment[];
+  /** Last model error, shown under the transcript. */
+  chatError?: string;
   allowPhysical: boolean;
 
   setAccount: (account: AccountProfile) => void;
@@ -86,6 +100,10 @@ interface PreviewState {
   /** Add a note (newest first). `dueToday` puts it on the Today tab. Blank input is ignored. */
   addNote: (body: string, options?: { dueToday?: boolean }) => void;
   sendChat: (text: string) => void;
+  setModel: (modelId: BuddyModelId) => void;
+  addAttachments: () => Promise<void>;
+  removeAttachment: (attachmentId: string) => void;
+  clearChatError: () => void;
   setAllowPhysical: (allow: boolean) => void;
   reset: () => void;
 }
@@ -105,6 +123,9 @@ function initialState() {
     notes: PREVIEW_NOTES,
     chat: PREVIEW_CHAT,
     buddyTyping: false,
+    selectedModelId: DEFAULT_BUDDY_MODEL,
+    pendingAttachments: [],
+    chatError: undefined,
     allowPhysical: true,
   };
 }
@@ -121,6 +142,19 @@ let idCounter = 0;
 function localId(prefix: string): string {
   idCounter += 1;
   return `${prefix}-${Date.now()}-${idCounter}`;
+}
+
+/** Compact local context handed to the on-device model. No network, no hidden fields. */
+function localBuddyContext(state: { profile: PlayerProfile; dailyQuests: Quest[]; notes: Note[] }): string[] {
+  const openNotes = state.notes
+    .filter((note) => !note.done)
+    .slice(0, 5)
+    .map((note) => note.body);
+  return [
+    `Player: ${state.profile.displayName} (${state.profile.title})`,
+    `Today's quests: ${state.dailyQuests.map((quest) => quest.title).join(', ') || 'none'}`,
+    `Open notes: ${openNotes.join(' | ') || 'none'}`,
+  ];
 }
 
 export const usePreviewStore = create<PreviewState>()((set, get) => ({
@@ -243,28 +277,78 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
   sendChat: (text) => {
     const trimmed = text.trim();
     if (!trimmed || get().buddyTyping) return;
-    const now = new Date().toISOString();
-    set((s) => ({
-      chat: [...s.chat, { id: localId('msg'), role: 'user', text: trimmed, createdAt: now }],
-      buddyTyping: true,
-    }));
-    // Placeholder reply until the on-device model lands in Phase 5.
-    setTimeout(() => {
-      set((s) => ({
-        buddyTyping: false,
-        chat: [
-          ...s.chat,
-          {
-            id: localId('msg'),
-            role: 'buddy',
-            text: t('buddy.previewReply'),
-            contextUsed: ['Player profile', 'Today’s quests'],
-            createdAt: new Date().toISOString(),
-          },
-        ],
-      }));
-    }, 900);
+
+    const state = get();
+    const model = buddyModel(state.selectedModelId);
+    const staged = state.pendingAttachments;
+    const userMessage: ChatMessage = {
+      id: localId('msg'),
+      role: 'user',
+      text: trimmed,
+      attachments: staged.length ? staged : undefined,
+      createdAt: new Date().toISOString(),
+    };
+    const history = [...state.chat, userMessage];
+    set({ chat: history, buddyTyping: true, pendingAttachments: [], chatError: undefined });
+
+    const prompt = buildBuddyPrompt(
+      history.map((message) => ({ role: message.role, text: message.text, attachments: message.attachments })),
+      localBuddyContext(get()),
+    );
+
+    void generateBuddyReply({ modelId: model.id, modelPath: model.path, prompt, attachments: staged })
+      .then((reply) => {
+        set((current) => ({
+          buddyTyping: false,
+          chat: [
+            ...current.chat,
+            {
+              id: localId('msg'),
+              role: 'buddy',
+              text: reply,
+              modelId: model.id,
+              generationState: 'complete',
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        }));
+      })
+      .catch((cause: unknown) => {
+        const message = cause instanceof Error ? cause.message : 'Buddy could not run the on-device model.';
+        set((current) => ({
+          buddyTyping: false,
+          chatError: message,
+          chat: [
+            ...current.chat,
+            {
+              id: localId('msg'),
+              role: 'buddy',
+              text: message,
+              modelId: model.id,
+              generationState: 'failed',
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        }));
+      });
   },
+
+  setModel: (modelId) => set({ selectedModelId: modelId, chatError: undefined }),
+
+  addAttachments: async () => {
+    const picked = await pickBuddyAttachments();
+    if (!picked.length) return;
+    set((current) => ({
+      pendingAttachments: [...current.pendingAttachments, ...picked].slice(0, 3),
+    }));
+  },
+
+  removeAttachment: (attachmentId) =>
+    set((current) => ({
+      pendingAttachments: current.pendingAttachments.filter((attachment) => attachment.id !== attachmentId),
+    })),
+
+  clearChatError: () => set({ chatError: undefined }),
 
   setAllowPhysical: (allow) => set({ allowPhysical: allow }),
 
