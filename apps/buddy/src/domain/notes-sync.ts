@@ -17,6 +17,9 @@ export interface NotesDoc {
   schemaVersion: number;
   userId: string;
   notes: StoredNote[];
+  /** Local agent command receipts share this document's atomic device write. Never uploaded. */
+  agentRevision?: number;
+  agentReceipts?: Record<string, { fingerprint: string; revision: string; value: unknown }>;
 }
 
 export interface NoteRow {

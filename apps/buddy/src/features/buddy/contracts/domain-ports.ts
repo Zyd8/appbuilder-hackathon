@@ -1,4 +1,4 @@
-import type { CheckIn, Insight, Note, PlayerProfile, Quest, StatBlock } from '../../../domain/types';
+import type { CheckIn, Insight, Note, ProfileAnalysis, Quest, StatBlock } from '../../../domain/types';
 import type { Durability, NotesCreateArguments } from './tool-protocol';
 
 export interface ReadSnapshot<T> {
@@ -11,7 +11,7 @@ export interface ReadSnapshot<T> {
 }
 
 export interface OnboardingReadPort { context(): Promise<ReadSnapshot<unknown>> }
-export interface ProfileReadPort { current(): Promise<ReadSnapshot<PlayerProfile | null>> }
+export interface ProfileReadPort { current(): Promise<ReadSnapshot<ProfileAnalysis | null>> }
 export interface QuestReadPort {
   board(): Promise<ReadSnapshot<Quest[]>>;
   history(): Promise<ReadSnapshot<Quest[]>>;
@@ -20,7 +20,7 @@ export interface QuestReadPort {
 export interface CheckInReadPort { current(): Promise<ReadSnapshot<CheckIn | null>> }
 export interface ProgressReadPort {
   xpLevelRank(): Promise<ReadSnapshot<{ totalXp: number; level: number; rank: string }>>;
-  statsSummary(): Promise<ReadSnapshot<StatBlock>>;
+  statsSummary(): Promise<ReadSnapshot<StatBlock | null>>;
   statsBreakdown(): Promise<ReadSnapshot<unknown>>;
   orderedInsights(): Promise<ReadSnapshot<Insight[]>>;
   currentNudge(): Promise<ReadSnapshot<unknown>>;
