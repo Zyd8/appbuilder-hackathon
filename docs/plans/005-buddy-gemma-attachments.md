@@ -8,7 +8,7 @@
 
 ## Goal
 
-Replace the Buddy chatbot’s preview timer reply with a local Gemma 3n runtime. Default to Gemma 3n E2B, allow switching to E4B, and support local file, image, and audio attachments without cloud inference or broad UI refactoring.
+Replace the Buddy chatbot’s preview timer reply with a local Gemma 3n runtime. Default to the user-facing `Gemma 3n Default (E2B)` option, allow switching to `Gemma 3n Pro (E4B)`, and support local file, image, and audio attachments without cloud inference or broad UI refactoring.
 
 The chatbot page is `apps/buddy/src/app/(tabs)/buddy.tsx`. It currently uses the preview Zustand store’s `sendChat` placeholder reply. The app uses Expo SDK 57, Expo Router, Zustand, Expo SQLite, and the Angat design system.
 
@@ -17,8 +17,8 @@ The chatbot page is `apps/buddy/src/app/(tabs)/buddy.tsx`. It currently uses the
 - Keep the existing Buddy screen, `AppText`, `Screen`, theme tokens, mascot, bubbles, typing state, and navigation.
 - Add one small feature module under `apps/buddy/src/features/buddy/` rather than introducing a new state framework or data layer.
 - Keep one native model loaded at a time.
-- Default model: Gemma 3n E2B instruction-tuned LiteRT-LM artifact.
-- Optional model: Gemma 3n E4B instruction-tuned LiteRT-LM artifact.
+- Default model: Gemma 3n Default (E2B) instruction-tuned LiteRT-LM artifact.
+- Optional model: Gemma 3n Pro (E4B) instruction-tuned LiteRT-LM artifact.
 - No cloud chat API, cloud transcription, RAG/vector database, tools, or background inference.
 - No silent model fallback. If the selected model is unavailable, show the actionable error.
 
@@ -75,7 +75,7 @@ Model states shown in the UI:
 - Generating
 - Failed
 
-Default E2B; E4B requires explicit selection and installation. Do not resolve `latest` at runtime: pin official artifact URLs, revisions, licenses, and SHA-256 checksums in the catalog.
+`Gemma 3n Default (E2B)` is selected initially; `Gemma 3n Pro (E4B)` requires explicit selection and installation. Do not resolve `latest` at runtime: pin official artifact URLs, revisions, licenses, and SHA-256 checksums in the catalog.
 
 ## Attachments
 
@@ -147,8 +147,8 @@ Expo Go is not a valid native-model test target. Use a development build/native 
 
 1. Baseline: run Buddy typecheck/lint/tests; record branch/base and inspect existing dirty state.
 2. Contracts: add model catalog, attachment types, native bridge interface, persistence shape, and unit tests.
-3. Model install: add E2B default and E4B optional download/checksum/ready states.
-4. Android text: wire native E2B generation into the existing Buddy chat and stream typing output.
+3. Model install: add `Gemma 3n Default (E2B)` installation first, then optional `Gemma 3n Pro (E4B)` download/checksum/ready states.
+4. Android text: wire the default E2B generation into the existing Buddy chat and stream typing output.
 5. Attachments: add file/image/audio picker chips, app-owned copies, limits, and supported media input.
 6. Model switching: add E4B selection, cancellation, unload/load lifecycle, and visible failures.
 7. iOS: implement and verify Swift native bridge; leave it explicitly unavailable until complete.
@@ -156,8 +156,8 @@ Expo Go is not a valid native-model test target. Use a development build/native 
 
 ## Acceptance criteria
 
-- Buddy opens with Gemma 3n E2B selected by default.
-- E4B is selectable and never silently substitutes E2B.
+- Buddy opens with `Gemma 3n Default (E2B)` selected by default.
+- `Gemma 3n Pro (E4B)` is selectable and never silently substitutes the default model.
 - The selected model/runtime and installation state are visible.
 - Text chat runs fully offline after model installation.
 - Typing/streaming, stop, error, and model-switch states work.
