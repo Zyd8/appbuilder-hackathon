@@ -38,8 +38,8 @@ The brief's section 15 has been re-sequenced so the UI is visible first and Supa
 ## Phase 1 — what was built, stubbed, and limited
 
 **Built**
-- Expo Router app: `onboarding` (welcome → 15 questions → analysis reveal), tabs `today`, `quests`, `player`, `buddy`, `notes`, modals `settings` and `check-in`.
-- Working in-memory interactions: answer/skip/back through onboarding; complete a quest with an optional one-line reflection (XP granted with the 200/day cap, level-up toast); swap daily quests (2/day); check-in; toggle tasks; capture notes; send chat messages.
+- Expo Router app: `onboarding` (welcome → 4 grouped pages: Your day, Your goals, Where you are now (8 ratings on one screen), Your rules → analysis reveal; 14 questions total, age question dropped as unneeded personal data), tabs `today`, `quests`, `player`, `buddy`, `notes`, modals `settings` and `check-in`.
+- Working in-memory interactions: answer, skip, or go back a page in onboarding; complete a quest with an optional one-line reflection (XP granted with the 200/day cap, level-up toast); swap daily quests (2/day); check-in; toggle tasks; capture notes; send chat messages.
 - Design tokens (light/dark), `t()` strings in `src/i18n/en.ts`, life-area icons and colors (always paired with text labels), radar chart (`react-native-svg`).
 - Domain: types for the brief's data model, `xp.ts` (rank XP, level curve, daily cap, rank titles) with 9 unit tests.
 - `src/lib/supabase.ts`: returns `null` unless env vars are set; Settings reflects that.
