@@ -39,6 +39,8 @@ One-time setup in the dashboards:
 3. Supabase → Authentication → URL Configuration → Redirect URLs: add `exp://**` (Expo Go) and `buddylevelup://**` (dev/release builds).
 4. Apply `supabase/migrations/*.sql` (creates `public.profiles` with owner-only RLS).
 
+**Testing login in Expo Go:** run `npm run start:tunnel`, not `npx expo start`. On the LAN, Expo Go's redirect URL uses your PC's IP (`exp://192.168.x.x:8081/--/auth/callback`), and Supabase rejects redirect URLs with IP-address hosts even when they are allow-listed, so it falls back to the Site URL. The tunnel gives a hostname (`*.exp.direct`) that matches `exp://**`.
+
 The first launch needs internet to sign in. After that, the cached session lets the app open offline. User content (answers, quests, notes) stays on the device; cloud backup of it is still a Phase 7 opt-in.
 
 ## Layout

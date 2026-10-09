@@ -8,6 +8,7 @@
 Google login currently uses Supabase OAuth in an in-app browser (`signInWithOAuth` + `expo-web-browser`). We chose it because it works in Expo Go. However:
 
 - the user leaves the app for a browser sheet instead of the phone's native Google account picker;
+- in Expo Go it only works over `expo start --tunnel`, because Supabase rejects redirect URLs whose host is an IP address (the LAN `exp://192.168.x.x:8081` form);
 - the redirect depends on deep-link allow-listing (`exp://**`, `buddylevelup://**`), which is fragile across Expo Go, dev builds and release builds.
 
 Phase 5 already needs a development build for the on-device model, so switching to native sign-in will cost little at that point.
