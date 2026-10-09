@@ -47,6 +47,7 @@ import {
   type BuddyModelId,
   type ChatAttachment,
 } from '@/features/buddy/types';
+import { t } from '@/i18n';
 import { loadCachedProfile } from '@/lib/account-storage';
 import { loadAssessment, writeAssessment } from '@/lib/assessment-storage';
 import { restoreAssessment, syncPendingAssessment } from '@/lib/assessment-sync';
