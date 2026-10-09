@@ -16,10 +16,12 @@ type QuestRowProps = {
   quest: Quest;
   /** Lifted while being dragged. */
   dragging?: boolean;
+  /** Shows the drag handle (Today). Otherwise a chevron says the row opens. */
+  draggable?: boolean;
 };
 
 /** Compact, glanceable quest summary. The full quest (instruction, why, actions) lives in the quest modal. */
-export function QuestRow({ quest, dragging = false }: QuestRowProps) {
+export function QuestRow({ quest, dragging = false, draggable = true }: QuestRowProps) {
   const { colors } = useTheme();
   const done = quest.status === 'done';
   const areaColor = areaColors[quest.area];
@@ -31,19 +33,11 @@ export function QuestRow({ quest, dragging = false }: QuestRowProps) {
         { backgroundColor: colors.surface, borderColor: dragging ? colors.primary : colors.border, shadowColor: colors.shadow },
         dragging && styles.dragging,
       ]}>
-      <View
-        style={[
-          styles.rank,
-          done
-            ? { backgroundColor: colors.successSoft, borderColor: colors.success }
-            : { backgroundColor: colors.surfaceAlt, borderColor: colors.primary },
-        ]}>
+      <View style={[styles.icon, { backgroundColor: done ? colors.successSoft : `${areaColor}1A` }]}>
         {done ? (
           <Ionicons name="checkmark" size={18} color={colors.success} accessibilityLabel={t('quests.completed')} />
         ) : (
-          <AppText variant="bodyStrong" color="primary">
-            {quest.rank}
-          </AppText>
+          <Ionicons name={LIFE_AREA_ICONS[quest.area]} size={18} color={areaColor} />
         )}
       </View>
 
@@ -65,7 +59,7 @@ export function QuestRow({ quest, dragging = false }: QuestRowProps) {
         </View>
       </View>
 
-      <Ionicons name="reorder-two" size={22} color={colors.textMuted} />
+      <Ionicons name={draggable ? 'reorder-two' : 'chevron-forward'} size={draggable ? 22 : 18} color={colors.textMuted} />
     </View>
   );
 }
@@ -87,14 +81,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 6,
   },
-  rank: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  icon: { width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1, gap: 2 },
   meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   strike: { textDecorationLine: 'line-through', opacity: 0.7 },
