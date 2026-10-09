@@ -44,6 +44,19 @@ it('changes collection revision when the existing Notes UI writes', async () => 
     { body: 'Read book' })).rejects.toMatchObject({ code: 'stale_revision' });
 });
 
+it('does not claim a note or receipt when the device write fails', async () => {
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: { getItem: () => null, setItem: () => { throw new Error('disk full'); }, removeItem: () => undefined },
+  });
+  const service = new NotesService(new LocalNotesAtomicStore('account-1'),
+    { next: () => '00000000-0000-4000-8000-000000000003' },
+    { now: () => '2026-10-10T00:00:00.000Z' });
+  await expect(service.create({ expectedRevision: '0', idempotencyKey: 'create-note-key-0003' },
+    { body: 'Read book' })).rejects.toThrow('disk full');
+  expect(stored.size).toBe(0);
+});
+
 it('reads persisted profile, quests and notes through typed ports', async () => {
   const profile = { revision: 'pa1', stats: { focus: 80 }, insights: [{ id: 'i1' }, { id: 'i2' }] };
   const quest = { id: 'q1', title: 'Focus', status: 'offered' };
