@@ -34,9 +34,11 @@ Build for graceful degradation:
 
 ## Current direction
 
-PocketOps is the recommended demo: an offline field guide and incident notebook with local search, persisted checklists, notes, and an optional LAN-local model adapter.
+PocketOps is now intentionally small: an unauthenticated local-AI chat demo. Open the app, type a question, and talk to the bot. It answers from bundled synthetic local knowledge without cloud access, stores chat history on-device, and can optionally call a local host on the same Wi-Fi network.
 
-The Expo Go sample is in `apps/expo-go-sample/`. It works without a cloud account and uses synthetic data. The optional deterministic LAN host is in `services/local-host/`.
+The Expo Go sample is in `apps/expo-go-sample/`. The optional deterministic local host is in `services/local-host/`.
+
+See `docs/plans/003-simple-local-chat.md` for the current scope. The earlier field-operations plan remains in `docs/plans/002-pocketops-mvp.md` as a future expansion, not a requirement for the hackathon demo.
 
 ## Run the Expo Go sample
 

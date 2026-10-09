@@ -11,7 +11,7 @@ node src/server.mjs
 The host listens on `0.0.0.0:8787` and exposes:
 
 - `GET /health`
-- `POST /v1/answer`
+- `POST /v1/chat`
 - `POST /v1/sync/push`
 
 Use the host machine's LAN IP in the app Settings screen, not `localhost`.

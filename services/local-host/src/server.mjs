@@ -20,7 +20,7 @@ function readBody(req) {
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type' }); res.end(); return; }
   if (req.method === 'GET' && req.url === '/health') { json(res, 200, { ok: true, mode: 'deterministic-local-host', model: null, cloud: false }); return; }
-  if (req.method === 'POST' && req.url === '/v1/answer') {
+  if (req.method === 'POST' && (req.url === '/v1/chat' || req.url === '/v1/answer')) {
     try {
       const body = await readBody(req);
       const first = Array.isArray(body.sources) ? body.sources[0] : null;

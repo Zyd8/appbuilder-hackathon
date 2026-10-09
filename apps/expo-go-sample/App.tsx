@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { buildOfflineAnswer, searchGuides, SearchHit } from './src/retrieval';
 import { checklistItems, guides, QueueItem, seedQuestion } from './src/fixtures';
-import { loadState, resetState, saveState } from './src/storage';
+import { ChatMessage, loadState, resetState, saveState } from './src/storage';
 
 type Mode = 'OFFLINE' | 'FIXTURE' | 'LAN';
 type Tab = 'HOME' | 'ASK' | 'CHECKLIST' | 'ACTIVITY' | 'SETTINGS';
@@ -33,11 +33,12 @@ const colors = {
 const emptyChecklist = checklistItems.map(() => false);
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('HOME');
+  const [tab, setTab] = useState<Tab>('ASK');
   const [mode, setMode] = useState<Mode>('OFFLINE');
   const [question, setQuestion] = useState(seedQuestion);
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [answer, setAnswer] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [notes, setNotes] = useState<string[]>([]);
   const [noteDraft, setNoteDraft] = useState('');
   const [checklist, setChecklist] = useState<boolean[]>(emptyChecklist);
@@ -53,6 +54,7 @@ export default function App() {
 
   useEffect(() => {
     loadState().then((state) => {
+      setMessages(state.messages);
       setNotes(state.notes);
       setChecklist(state.checklist.length === checklistItems.length ? state.checklist : emptyChecklist);
       setQueue(state.queue);
@@ -63,8 +65,9 @@ export default function App() {
     });
   }, []);
 
-  const persist = async (next: { notes?: string[]; checklist?: boolean[]; queue?: QueueItem[] }) => {
+  const persist = async (next: { messages?: ChatMessage[]; notes?: string[]; checklist?: boolean[]; queue?: QueueItem[] }) => {
     const state = {
+      messages: next.messages ?? messages,
       notes: next.notes ?? notes,
       checklist: next.checklist ?? checklist,
       queue: next.queue ?? queue,
@@ -73,12 +76,17 @@ export default function App() {
   };
 
   const ask = async () => {
+    const prompt = question.trim();
+    if (!prompt) return;
+    const userMessage: ChatMessage = { id: `user-${Date.now()}`, role: 'user', text: prompt };
+    const nextMessages = [...messages, userMessage];
+    setMessages(nextMessages);
     const results = searchGuides(guides, question);
     setHits(results);
     setBanner('');
     if (mode === 'LAN') {
       try {
-        const response = await fetch(`${hostUrl.replace(/\/$/, '')}/v1/answer`, {
+        const response = await fetch(`${hostUrl.replace(/\/$/, '')}/v1/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ question, sources: results.map((item) => ({ id: item.sectionId, text: item.body })) }),
@@ -87,13 +95,20 @@ export default function App() {
         const payload = await response.json() as { answer?: string };
         if (!payload.answer) throw new Error('Invalid host response');
         setAnswer(payload.answer);
+        const withAnswer = [...nextMessages, { id: `assistant-${Date.now()}`, role: 'assistant' as const, text: payload.answer, mode: modeLabel }];
+        setMessages(withAnswer);
+        await persist({ messages: withAnswer });
         setBanner('LAN host answered using the selected local source passages.');
         return;
       } catch {
         setBanner('LAN host unavailable. Falling back to local retrieval; no work was lost.');
       }
     }
-    setAnswer(buildOfflineAnswer(question, results));
+    const offlineAnswer = buildOfflineAnswer(question, results);
+    setAnswer(offlineAnswer);
+    const withAnswer = [...nextMessages, { id: `assistant-${Date.now()}`, role: 'assistant' as const, text: offlineAnswer, mode: modeLabel }];
+    setMessages(withAnswer);
+    await persist({ messages: withAnswer });
   };
 
   const saveNote = async () => {
@@ -162,6 +177,7 @@ export default function App() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Reset', style: 'destructive', onPress: async () => {
         await resetState();
+        setMessages([]);
         setNotes([]);
         setChecklist(emptyChecklist);
         setQueue([]);
@@ -217,8 +233,9 @@ export default function App() {
         {tab === 'ASK' && <>
           <View style={styles.screenHeading}><Text style={styles.screenTitle}>Ask PocketOps</Text><ModeBadge mode={modeLabel} /></View>
           <Text style={styles.muted}>Retrieval happens on this device first. The selected source passages are visible below.</Text>
-          <TextInput value={question} onChangeText={setQuestion} placeholder="Ask about a local guide…" placeholderTextColor={colors.muted} style={styles.input} multiline />
-          <Pressable style={styles.primaryButton} onPress={ask}><Text style={styles.primaryButtonText}>Search and answer</Text><Text style={styles.arrow}>→</Text></Pressable>
+          <TextInput value={question} onChangeText={setQuestion} placeholder="Ask the local bot…" placeholderTextColor={colors.muted} style={styles.input} multiline />
+          {messages.map((message) => <View key={message.id} style={[styles.chatBubble, message.role === 'user' ? styles.chatUser : styles.chatAssistant]}><Text style={message.role === 'user' ? styles.chatUserText : styles.chatAssistantText}>{message.text}</Text>{message.mode ? <Text style={styles.chatMode}>{message.mode}</Text> : null}</View>)}
+          <Pressable style={styles.primaryButton} onPress={ask}><Text style={styles.primaryButtonText}>Send to bot</Text><Text style={styles.arrow}>→</Text></Pressable>
           {answer ? <View style={styles.answerCard}><View style={styles.answerHeader}><Text style={styles.answerKicker}>{modeLabel.toUpperCase()}</Text><Text style={styles.sourceCount}>{hits.length} sources</Text></View><Text style={styles.answer}>{answer}</Text></View> : null}
           <Text style={styles.sectionLabel}>LOCAL SOURCES</Text>
           {hits.length ? hits.map((hit) => <View key={hit.sectionId} style={styles.sourceCard}><View style={styles.sourceHeader}><Text style={styles.sourceTitle}>{hit.heading}</Text><Text style={styles.score}>SCORE {hit.score}</Text></View><Text style={styles.sourceGuide}>{hit.guideTitle}</Text><Text style={styles.sourceBody}>{hit.body}</Text></View>) : <Text style={styles.empty}>Run a search to see cited local passages.</Text>}
@@ -311,6 +328,12 @@ const styles = StyleSheet.create({
   modeBadgeText: { color: colors.green, fontSize: 10, fontWeight: '800' },
   input: { backgroundColor: colors.card, borderColor: colors.line, borderWidth: 1, borderRadius: 14, padding: 14, color: colors.ink, fontSize: 15, marginTop: 15, minHeight: 55, textAlignVertical: 'top' },
   noteInput: { minHeight: 88 },
+  chatBubble: { padding: 13, borderRadius: 15, marginTop: 10, maxWidth: '92%' },
+  chatUser: { backgroundColor: colors.green, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
+  chatAssistant: { backgroundColor: colors.card, borderColor: colors.line, borderWidth: 1, alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
+  chatUserText: { color: '#FFFFFF', fontSize: 14, lineHeight: 20 },
+  chatAssistantText: { color: colors.ink, fontSize: 14, lineHeight: 20 },
+  chatMode: { color: colors.muted, fontSize: 9, fontWeight: '800', marginTop: 7, textTransform: 'uppercase' },
   answerCard: { backgroundColor: colors.navy, borderRadius: 17, padding: 17, marginTop: 17 },
   answerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   answerKicker: { color: '#9EE0C9', fontSize: 10, fontWeight: '900', letterSpacing: 1.1 },
