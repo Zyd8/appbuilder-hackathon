@@ -7,6 +7,7 @@ This folder contains the durable plans and decisions for AppBuilder Hackathon.
 - `plans/` — product direction, implementation phases, demo scripts, and acceptance criteria.
 - `decisions/` — architecture decision records explaining choices and tradeoffs.
 - `todo/` — known follow-up refactors with their reason and acceptance criteria.
+- `design/` — the Angat design system: brand, color, type, components, and motion rules every screen follows.
 
 ## Documentation Rules
 

@@ -87,7 +87,7 @@ export default function Landing() {
       <Animated.View entering={FadeInDown.duration(500)}>
         <GradientPanel style={styles.hero}>
           <View style={styles.heroTop}>
-            <View style={styles.markBadge}>
+            <View style={[styles.markBadge, { backgroundColor: colors.surface }]}>
               <BrandLogo variant="mark" height={20} />
             </View>
             <AppText variant="overline" color="onPrimary" style={styles.heroOverline}>
@@ -178,6 +178,7 @@ export default function Landing() {
 
 /** Buddy in a white halo, bobbing gently (still when Reduce Motion is on). */
 function FloatingBuddy({ mood }: { mood: BuddyMood }) {
+  const { colors } = useTheme();
   const reduceMotion = useReducedMotion();
   const bob = useSharedValue(0);
 
@@ -189,7 +190,7 @@ function FloatingBuddy({ mood }: { mood: BuddyMood }) {
   const style = useAnimatedStyle(() => ({ transform: [{ translateY: -8 * bob.get() }] }));
 
   return (
-    <Animated.View style={[styles.halo, style]}>
+    <Animated.View style={[styles.halo, { backgroundColor: colors.surface, shadowColor: colors.shadow }, style]}>
       <BuddyMascot mood={mood} size={112} />
     </Animated.View>
   );
@@ -214,7 +215,6 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: radius.pill,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -223,10 +223,8 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#001A66',
     shadowOpacity: 0.3,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 10 },

@@ -5,6 +5,7 @@ import type { LifeArea } from '@/domain/types';
 /**
  * Angat brand: light-only. White is the app background; blues come from the logo
  * (deep #0033C4 → royal #0047D9 → bright #0A6CF0 → sky #00A6F0).
+ * Usage rules: docs/design/angat-design-system.md. Keep that file in sync with these values.
  */
 export const colors = {
   background: '#FFFFFF',
@@ -20,6 +21,8 @@ export const colors = {
   successSoft: '#E0F2FA',
   border: '#D6E3FB',
   glow: 'rgba(0, 71, 217, 0.14)',
+  /** Shadow tint for elevated elements on the brand gradient. */
+  shadow: '#001A66',
   danger: '#B42318',
 } as const;
 
