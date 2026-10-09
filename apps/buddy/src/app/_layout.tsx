@@ -1,7 +1,7 @@
 import { DefaultTheme, Stack, ThemeProvider, type NativeStackNavigationOptions } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
+import { AppState, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ToastHost } from '@/components/toast';
@@ -28,14 +28,24 @@ export default function RootLayout() {
   const { colors } = useTheme();
   const setAccount = usePreviewStore((s) => s.setAccount);
   const syncAssessment = usePreviewStore((s) => s.syncAssessment);
+  const syncNotes = usePreviewStore((s) => s.syncNotes);
 
-  // A profile or answers saved while offline are upserted on the next launch.
+  // A profile, answers, or notes saved while offline are upserted on the next launch.
   useEffect(() => {
     retryPendingProfileSync()
       .then((profile) => profile && setAccount(profile))
       .catch(() => {});
     syncAssessment();
-  }, [setAccount, syncAssessment]);
+    syncNotes();
+  }, [setAccount, syncAssessment, syncNotes]);
+
+  // Coming back to the app: back up pending notes and pick up edits from other devices.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') syncNotes();
+    });
+    return () => subscription.remove();
+  }, [syncNotes]);
 
   const navTheme = {
     ...DefaultTheme,
@@ -65,6 +75,7 @@ export default function RootLayout() {
           <Stack.Screen name="check-in" options={{ ...halfSheet, title: t('checkin.title') }} />
           <Stack.Screen name="stats" options={{ ...halfSheet, title: t('stats.breakdown') }} />
           <Stack.Screen name="quest/[id]" options={{ ...halfSheet, title: t('quests.details') }} />
+          <Stack.Screen name="note/[id]" options={{ ...halfSheet, title: t('notes.edit') }} />
         </Stack>
         <ToastHost />
       </GestureHandlerRootView>
