@@ -15,7 +15,7 @@ Buddy: Level Up combines two ideas:
 
 The two are one loop: **everyday tasks and quests live in the same list, and the companion is the thing that understands you well enough to pick quests that fit.**
 
-All core AI runs **on the device**. Onboarding answers, notes, check-ins, and progress stay on the phone. A one-time **Google sign-in** is required before onboarding (ADR-005); only the account identity (name, email, photo) goes to the cloud. After that first sign-in, the app works fully offline.
+All core AI runs **on the device**. Notes, check-ins, quests, and progress stay on the phone. A one-time **Google sign-in** is required before onboarding (ADR-005). The account identity (name, email, photo) and the **onboarding answers** are backed up to the user's account (ADR-006); the phone copy stays the source of truth. After that first sign-in, the app works fully offline.
 
 ### The one-sentence pitch
 "Answer a few questions, and a private on-device AI builds you a personal quest board for growing in ways that go beyond the gym, and after one quick sign-in it all works with no internet."
@@ -25,7 +25,7 @@ Students, young professionals, and freelancers who want to grow (skills, discipl
 
 ### Product principles
 1. **Quests are personal and varied.** Never just "go to the gym". Quests come from the user's own answers and span many life areas.
-2. **Private by default.** Personal content (answers, quests, notes, reflections, chat) never leaves the device unless the user shares something. The only cloud data is the sign-in identity: name, email, photo.
+2. **Private by default.** Personal content (quests, notes, reflections, check-ins, chat) never leaves the device unless the user shares something. The only cloud data is the sign-in identity (name, email, photo) and the onboarding answers, kept in the user's own account (ADR-005, ADR-006).
 3. **Offline-first.** Every core feature works with no connection once the user has signed in once.
 4. **Encouraging, never punishing.** No penalty zones, no streak-shame, no "you failed" screens. Missing days pauses progress; it never removes it.
 5. **Honest AI.** The AI's analysis is a suggestion to reflect on, not a diagnosis. The user can edit or reject any insight or quest.
@@ -90,7 +90,13 @@ A friendly conversational questionnaire (about 5 minutes, skippable parts, saved
 
 Rules:
 - Every question is skippable. Never ask for sensitive data (medical conditions, finances in detail, location beyond optional city, relationships specifics).
-- Show a clear privacy line: "Your answers stay on this device."
+- Show a clear privacy line saying where answers go. Current copy: "Your answers are saved to your account so Buddy remembers you." Answers are saved on the device and backed up to the account (ADR-006).
+
+**Saving answers (built, ADR-006):**
+- Every tap saves to the device right away, so progress survives a restart. Answers are pushed to the account once per page, on finish, and on launch; offline pushes retry later.
+- Stored as raw codes (`"15-30"`, `["focus","calm"]`, `2`, free text), never display labels, with a `questionnaireVersion`.
+- On sign-in, the cloud copy is restored when it is newer and there are no unsynced local edits. A user who already finished onboarding lands on Today.
+- **AI input:** `buildAssessmentContext()` turns the saved answers into an ordered, labeled list `{ id, section, question, answer, scale? }` for prompts. Use this as the input to the "Analyze profile" job (section 6).
 - If answers suggest the user is in serious distress, stop the gamified flow and show a gentle message encouraging them to reach out to trusted people or local support services. Buddy is not a medical or mental-health tool.
 
 ### 3.2 AI Analysis and Player Profile
@@ -211,7 +217,7 @@ Settings (via Player or a gear icon): **account (name, email, sign out)**, prefe
 | Database | **SQLite (expo-sqlite) + Drizzle ORM** | All data local. |
 | On-device LLM | Small (about 1–2B parameter) 4-bit model behind an `AIEngine` interface (MediaPipe LLM Inference on Android, llama.cpp / MLX bindings on iOS) | Prefer platform AI (Apple Foundation Models, Gemini Nano) where available. |
 | Auth (built) | **Supabase Auth, Google provider** via `expo-web-browser` + `expo-linking`, PKCE (S256) with an `expo-crypto` polyfill | Browser flow works in Expo Go; native sign-in planned. See ADR-005. |
-| Cloud data (built) | **Supabase Postgres**: `public.profiles` only | Identity only, owner-only RLS. User content stays local. |
+| Cloud data (built) | **Supabase Postgres**: `public.profiles`, `public.onboarding_assessments` | Owner-only RLS. Identity plus onboarding answers; other user content stays local. |
 | Notifications | expo-notifications (local scheduling) | |
 | Animations | Reanimated + Lottie | Level-ups, XP bars. |
 | Charts | react-native-svg (radar chart for stats) | |
@@ -248,7 +254,7 @@ The AI does four jobs. Each has a versioned prompt, a JSON schema, validation, a
 All IDs UUID; all tables have `created_at`, `updated_at`; soft-delete where relevant (sync-ready later).
 
 - `profile` (id, display_name, title, level, total_xp, rest_tokens, created_at)
-- `assessment_answers` (id, question_id, answer_json, answered_at)
+- `assessment_answers`: **built differently (ADR-006).** One JSON document per user in localStorage (`buddy.onboarding.<userId>`) shaped as `{ schemaVersion, questionnaireVersion, userId, answers: { [questionId]: { value, answeredAt } }, completedAt, updatedAt, syncedAt }`. It may move into SQLite with the rest of Phase 2.
 - `stats` (area, value, updated_at) and `stat_history` (area, value, recorded_at)
 - `insights` (id, type: strength | growth_area | focus, text, reason, user_edited)
 - `quest_templates` (id, area, title, body, difficulty, est_minutes, energy, tags_json, requires_json)
@@ -267,6 +273,8 @@ Optional: database encryption at rest with a key in secure storage, behind a tog
 **Account (built, ADR-005):**
 - On device: the signed-in profile is cached in `localStorage` (`expo-sqlite/localStorage`, key `buddy.account.profile`) with `id, email, displayName, avatarUrl, provider, syncedAt?`. A missing `syncedAt` means the cloud upsert is still pending. The Supabase session is stored in the same on-device storage.
 - In the cloud (Supabase): `public.profiles` (id → `auth.users.id`, email, display_name, avatar_url, provider, created_at, updated_at). RLS allows select, insert and update only where `auth.uid() = id`; there is no delete policy. Migration: `apps/buddy/supabase/migrations/20261009120000_create_profiles.sql`.
+
+**Onboarding answers in the cloud (built, ADR-006):** `public.onboarding_assessments` (user_id → `auth.users.id`, `answers jsonb` mirroring the device document, questionnaire_version, completed_at, updated_at, created_at). One row per user, idempotent upsert on `user_id`, owner-only RLS. Migration: `apps/buddy/supabase/migrations/20261009150000_create_onboarding_assessments.sql`.
 
 ---
 
@@ -301,12 +309,12 @@ Areas are user-editable: users can hide an area or add a custom one later.
 
 ## 10. Privacy and Security
 
-- A Google account is required before onboarding (ADR-005). Only identity data (name, email, photo) is stored in the cloud; no cloud storage of user content.
+- A Google account is required before onboarding (ADR-005). The cloud stores identity data (name, email, photo) and the onboarding answers, including the free-text answer (ADR-006). Quests, notes, reflections, check-ins, and chat are not stored in the cloud.
 - Analytics, if added, are opt-in, event-level only, and never include answers, notes, or reflections.
 - Just-in-time permission prompts (notifications first; location only if live insights are added).
 - Google client secret lives only in the Supabase dashboard. The app bundles only the Supabase URL and **publishable** key.
 - Settings → Privacy: view stored data, export everything as JSON, delete all data, delete the AI model, toggle encryption.
-- Store privacy labels must remain accurate (name, email, and photo are collected for the account per ADR-005; user content is not).
+- Store privacy labels must remain accurate (name, email, photo, and onboarding answers are collected and linked to the account per ADR-005/006; other user content is not).
 
 ---
 
@@ -344,7 +352,7 @@ Areas are user-editable: users can hide an area or add a custom one later.
 
 A narrow slice that shows the whole idea end to end, fully offline:
 
-0. **Google sign-in (built):** required before onboarding; profile saved locally and to Supabase `profiles`.
+0. **Google sign-in (built):** required before onboarding; profile saved locally and to Supabase `profiles`. Onboarding answers are saved on the device per tap and backed up to `onboarding_assessments` (built, ADR-006).
 1. **Onboarding:** 12–15 questions (tap-based plus one free-text).
 2. **On-device analysis:** Player Profile with 6 stats, 2 strengths, 2 growth areas, a title, and the reasoning shown.
 3. **Daily Quest Board:** 3 personalized quests from the curated library (about 60 quests for the MVP) with AI personalization of wording and a "why this quest" line.

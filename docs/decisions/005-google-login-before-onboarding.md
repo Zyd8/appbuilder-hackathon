@@ -17,7 +17,7 @@ The team wants every Buddy user tied to a Google account before onboarding start
   1. first to on-device `localStorage` (`expo-sqlite/localStorage`, key `buddy.account.profile`), which is the local source of truth;
   2. then as an idempotent upsert (by `id`) into `public.profiles` in the `appbuilders-hackathon` Supabase project. RLS lets each user read, insert and update only their own row.
 - If the upsert fails, the local copy is kept with no `syncedAt`. The app retries on the next launch, and Settings shows the pending state.
-- **Only identity data goes to the cloud.** Onboarding answers, quests, notes, reflections and chat stay on the device as before. ADR-004's opt-in backup rules still apply to them.
+- **Only identity data goes to the cloud.** Quests, notes, reflections and chat stay on the device as before, and ADR-004's opt-in backup rules still apply to them. *Changed by ADR-006: onboarding answers are now also backed up to the account.*
 
 ## Alternatives considered
 
