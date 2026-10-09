@@ -90,6 +90,8 @@ export interface Note {
   /** Optional scheduled local date (YYYY-MM-DD). Shows on Today on that day and in the calendar. */
   date?: string;
   area?: LifeArea;
+  /** Manual list order (ADR-011): lower sorts first. Unset means `-createdAt` in ms, i.e. newest first. */
+  position?: number;
   /** Soft delete, kept until the deletion reaches the cloud. */
   deletedAt?: string;
 }
