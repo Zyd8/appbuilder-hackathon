@@ -65,6 +65,9 @@ export default function App() {
     setStatus(`${selectedProfile.label} · typing…`);
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
     try {
+      if (!selectedProfile.available) {
+        throw new Error(`${selectedProfile.label} is selected, but the ${selectedProfile.runtime} native adapter is not installed. Select Qwen3 1.7B to use the working on-device model.`);
+      }
       const hits = searchGuides(guides, prompt);
       const result = await generateWithSelectedModel(selectedModel, modelPath, prompt, hits);
       const assistantMessage: ChatMessage = {
@@ -78,7 +81,7 @@ export default function App() {
       await persistMessages(next);
       setStatus(`${selectedProfile.label} · on device · no network`);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Native Qwen inference failed.');
+      setError(cause instanceof Error ? cause.message : `${selectedProfile.label} inference failed.`);
       setStatus(`${selectedProfile.label} · unavailable`);
     } finally {
       setBusy(false);
