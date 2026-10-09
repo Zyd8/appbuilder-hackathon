@@ -23,7 +23,7 @@ type QuestDetailsProps = {
   onSwapped: (newId: string) => void;
 };
 
-/** A quest in its sheet: what it is, what to do, why Buddy picked it, and the actions. */
+/** A quest in its sheet: what it is, what to do, and the actions. */
 export function QuestDetails({ quest, canSwap, onSwapped }: QuestDetailsProps) {
   const { colors } = useTheme();
   const complete = useCompleteQuest();
@@ -82,17 +82,10 @@ export function QuestDetails({ quest, canSwap, onSwapped }: QuestDetailsProps) {
   return (
     <Sheet eyebrow={t(`quests.sheet.${quest.kind}`)} title={quest.title} footer={footer}>
       <View style={styles.pills}>
-        <Pill icon="ribbon-outline" label={t('quests.rank', { rank: quest.rank })} />
         <AreaTag area={quest.area} />
         <Pill icon="time-outline" label={t('quests.minutes', { count: quest.estMinutes })} />
         <Pill icon="flash" label={t('quests.xp', { count: quest.xp })} accent />
       </View>
-
-      {quest.flavor ? (
-        <AppText color="textMuted" style={styles.flavor}>
-          {quest.flavor}
-        </AppText>
-      ) : null}
 
       <View style={[styles.block, { backgroundColor: colors.surfaceAlt }]}>
         <AppText variant="overline" color="primary">
@@ -100,18 +93,6 @@ export function QuestDetails({ quest, canSwap, onSwapped }: QuestDetailsProps) {
         </AppText>
         <AppText variant="bodyStrong">{quest.instruction}</AppText>
       </View>
-
-      {quest.why ? (
-        <View style={styles.why}>
-          <Ionicons name="sparkles" size={16} color={colors.accent} />
-          <AppText variant="caption" color="textMuted" style={styles.flex}>
-            <AppText variant="caption" color="accent">
-              {t('quests.why')}:{' '}
-            </AppText>
-            {quest.why}
-          </AppText>
-        </View>
-      ) : null}
 
       {done ? (
         <View style={[styles.done, { backgroundColor: colors.successSoft }]}>
@@ -155,9 +136,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
   },
-  flavor: { fontStyle: 'italic' },
   block: { borderRadius: radius.md, padding: spacing.md, gap: spacing.xs },
-  why: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
   flex: { flex: 1 },
   done: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderRadius: radius.md, padding: spacing.md },
   input: {
