@@ -111,7 +111,7 @@ export default function Today() {
           rowHeight={QUEST_ROW_HEIGHT}
           renderItem={(quest, dragging) => <QuestRow quest={quest} dragging={dragging} />}
           labelFor={(quest) =>
-            `${quest.title}, ${t('quests.rank', { rank: quest.rank })}, ${t('quests.minutes', { count: quest.estMinutes })}${
+            `${quest.title}, ${t('quests.minutes', { count: quest.estMinutes })}${
               quest.status === 'done' ? `, ${t('quests.completed')}` : ''
             }`
           }
