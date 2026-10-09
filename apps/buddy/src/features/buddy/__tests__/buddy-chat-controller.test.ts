@@ -4,6 +4,7 @@ import type { AIEngine, AIEngineOutput } from '../contracts/ai-engine';
 import type { BuddyReadPorts, BuddyWritePorts, ReadSnapshot } from '../contracts/domain-ports';
 import { BuddyChatController } from '../buddy-chat-controller';
 import type { MemoryRepository } from '../memory/memory-repository';
+import type { ModelManager } from '../model-manager';
 
 jest.mock('expo-sqlite/localStorage/install', () => ({}));
 
@@ -40,8 +41,10 @@ function fixture(script: AIEngineOutput[]) {
     { name: 'BOT.md', text: '# BOT\nHelpful', revision: '1', bytes: 20, managedEntries: [] },
     { name: 'USER.md', text: '# USER\nLocal', revision: '1', bytes: 20, managedEntries: [] },
   ] } as unknown as MemoryRepository;
-  const controller = new BuddyChatController(memory, engine, reads, writes);
-  return { controller, generate, create, getNote: () => note };
+  const switchModel = jest.fn();
+  const manager = { switchModel } as unknown as ModelManager;
+  const controller = new BuddyChatController(memory, engine, reads, writes, undefined, manager);
+  return { controller, generate, create, switchModel, getNote: () => note };
 }
 
 it('presents confirmed local note read-back separately from a clean answer', async () => {
@@ -60,6 +63,7 @@ it('presents confirmed local note read-back separately from a clean answer', asy
   expect(answer.summary).toContain('notes.create: succeeded.');
   expect(JSON.stringify(answer)).not.toContain('<think>');
   expect(f.create).toHaveBeenCalledTimes(1);
+  expect(f.switchModel).toHaveBeenCalledWith('gemma4-e2b');
   expect(f.getNote()).toMatchObject({ body: 'Call dentist' });
 });
 

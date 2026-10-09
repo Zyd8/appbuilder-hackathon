@@ -40,12 +40,13 @@ export class BuddyChatController {
   constructor(readonly memory: MemoryRepository, private readonly engine: AIEngine,
     reads: ConstructorParameters<typeof BuddyAgentService>[1],
     writes: ConstructorParameters<typeof BuddyAgentService>[2],
-    private readonly db?: BuddyDatabase) {
+    private readonly db?: BuddyDatabase, private readonly manager?: ModelManager) {
     this.agent = new BuddyAgentService(engine, reads, writes, { now: () => new Date().toISOString() });
   }
 
   async start(input: BuddyChatStart): Promise<BuddyChatResult> {
     try {
+      this.manager?.switchModel(input.modelId);
       const documents = await this.memory.readAll();
       const prompt = buildBuddyPrompt(input.history, input.localContext ?? [], {
         botMemory: documents.find((doc) => doc.name === 'BOT.md')?.text,
@@ -64,7 +65,10 @@ export class BuddyChatController {
     return this.present(await this.agent.decide(callId, decision, signal));
   }
 
-  modelStatus(modelId: BuddyModelId): Promise<AIEngineReadiness> { return this.engine.readiness(modelId); }
+  modelStatus(modelId: BuddyModelId): Promise<AIEngineReadiness> {
+    this.manager?.switchModel(modelId);
+    return this.engine.readiness(modelId);
+  }
 
   async close(): Promise<void> {
     await this.engine.dispose();
@@ -106,7 +110,7 @@ export function getBuddyChatController(userId: string): Promise<BuddyChatControl
       quests: new QuestRepository(db, namespace), checkIn: new CheckInRepository(db, namespace),
       progress: new ProgressRepository(db, namespace), memory, ...runtime,
       now: () => new Date().toISOString() });
-    return new BuddyChatController(memory, engine, reads, createBuddyWritePorts(namespace), db);
+    return new BuddyChatController(memory, engine, reads, createBuddyWritePorts(namespace), db, manager);
   })();
   controllers.set(namespace, pending);
   void pending.catch(() => { if (controllers.get(namespace) === pending) controllers.delete(namespace); });
