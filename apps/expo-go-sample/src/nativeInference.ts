@@ -1,4 +1,5 @@
 import type { SearchHit } from './retrieval';
+import { getModelProfile, ModelId } from './modelRegistry';
 
 export type NativeQwenResult = {
   text: string;
@@ -37,4 +38,10 @@ export async function generateWithQwen(modelPath: string, question: string, sour
   } finally {
     await context.release();
   }
+}
+
+export async function generateWithSelectedModel(modelId: ModelId, modelPath: string, question: string, sources: SearchHit[]) {
+  const profile = getModelProfile(modelId);
+  if (modelId === 'qwen3-1.7b') return generateWithQwen(modelPath, question, sources);
+  throw new Error(`${profile.label} is selectable, but its ${profile.runtime} native adapter is not installed yet. Qwen3 remains the working on-device model.`);
 }

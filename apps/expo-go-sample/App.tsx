@@ -15,7 +15,8 @@ import {
 import { guides, checklistItems } from './src/fixtures';
 import { searchGuides } from './src/retrieval';
 import { ChatMessage, loadState, saveState } from './src/storage';
-import { generateWithQwen } from './src/nativeInference';
+import { generateWithSelectedModel } from './src/nativeInference';
+import { getModelProfile, MODEL_PROFILES, ModelId } from './src/modelRegistry';
 
 const colors = {
   ink: '#10202B', muted: '#68808A', paper: '#F4F7F5', card: '#FFFFFF',
@@ -29,11 +30,13 @@ const defaultModelPath = Platform.OS === 'android'
 export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState('');
+  const [selectedModel, setSelectedModel] = useState<ModelId>('qwen3-1.7b');
   const [modelPath, setModelPath] = useState(defaultModelPath);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('Qwen3 1.7B · native mode');
   const [error, setError] = useState('');
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const selectedProfile = getModelProfile(selectedModel);
 
   useEffect(() => {
     loadState().then((state) => setMessages(state.messages)).catch(() => setError('Could not load local chat history.'));
@@ -59,11 +62,11 @@ export default function App() {
     setMessages(withUser);
     await persistMessages(withUser);
     setBusy(true);
-    setStatus('Qwen3 1.7B · typing…');
+    setStatus(`${selectedProfile.label} · typing…`);
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
     try {
       const hits = searchGuides(guides, prompt);
-      const result = await generateWithQwen(modelPath, prompt, hits);
+      const result = await generateWithSelectedModel(selectedModel, modelPath, prompt, hits);
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
@@ -73,10 +76,10 @@ export default function App() {
       const next = [...withUser, assistantMessage];
       setMessages(next);
       await persistMessages(next);
-      setStatus('Qwen3 1.7B · on device · no network');
+      setStatus(`${selectedProfile.label} · on device · no network`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Native Qwen inference failed.');
-      setStatus('Qwen3 1.7B · model unavailable');
+      setStatus(`${selectedProfile.label} · unavailable`);
     } finally {
       setBusy(false);
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
@@ -91,7 +94,8 @@ export default function App() {
           <View><Text style={styles.eyebrow}>ON-DEVICE CHAT</Text><Text style={styles.title}>PocketOps</Text></View>
           <View style={styles.nativePill}><View style={styles.dot} /><Text style={styles.pillText}>NATIVE</Text></View>
         </View>
-        <View style={styles.modelBar}><Text style={styles.modelName}>Qwen3 1.7B</Text><Text style={styles.modelStatus}>{status}</Text></View>
+        <View style={styles.modelBar}><Text style={styles.modelName}>{selectedProfile.label}</Text><Text style={styles.modelStatus}>{status}</Text></View>
+        <View style={styles.modelSwitch}>{MODEL_PROFILES.map((profile) => <Pressable key={profile.id} onPress={() => { setSelectedModel(profile.id); setModelPath(profile.modelPath); setStatus(profile.available ? `${profile.label} · native mode` : `${profile.label} · adapter required`); setError(''); }} style={[styles.modelChip, selectedModel === profile.id && styles.modelChipActive]}><Text style={[styles.modelChipText, selectedModel === profile.id && styles.modelChipTextActive]}>{profile.label}</Text><Text style={styles.modelChipRuntime}>{profile.runtime}</Text></Pressable>)}</View>
         <FlatList
           ref={listRef}
           data={messages}
@@ -99,7 +103,7 @@ export default function App() {
           contentContainerStyle={styles.messages}
           keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-          ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>Talk to Qwen offline.</Text><Text style={styles.emptyText}>The model runs inside this app. No account, cloud API, or laptop host.</Text><Text style={styles.example}>Try: “Why is the generator showing E17?”</Text></View>}
+          ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>Talk to {selectedProfile.label} offline.</Text><Text style={styles.emptyText}>The selected model runs inside this app. No account, cloud API, or laptop host.</Text><Text style={styles.example}>Try: “Why is the generator showing E17?”</Text></View>}
           renderItem={({ item }) => <View style={[styles.bubble, item.role === 'user' ? styles.userBubble : styles.botBubble]}><Text style={item.role === 'user' ? styles.userText : styles.botText}>{item.text}</Text>{item.mode ? <Text style={styles.modeText}>{item.mode}</Text> : null}</View>}
         />
         {error ? <View style={styles.error}><Text style={styles.errorText}>{error}</Text><TextInput value={modelPath} onChangeText={setModelPath} autoCapitalize="none" autoCorrect={false} style={styles.pathInput} placeholder="file:///path/to/Qwen3-1.7B-Q8_0.gguf" placeholderTextColor={colors.muted} /></View> : null}
@@ -117,6 +121,7 @@ const styles = StyleSheet.create({
   eyebrow: { color: colors.green, fontSize: 10, fontWeight: '900', letterSpacing: 1.5 }, title: { color: colors.ink, fontSize: 34, fontWeight: '900', letterSpacing: -1.2 },
   nativePill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.mint, borderRadius: 20, paddingHorizontal: 11, paddingVertical: 8 }, dot: { width: 7, height: 7, borderRadius: 7, backgroundColor: colors.green }, pillText: { color: colors.green, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   modelBar: { marginHorizontal: 20, backgroundColor: colors.navy, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 11 }, modelName: { color: '#FFFFFF', fontWeight: '900', fontSize: 14 }, modelStatus: { color: '#B7E8D8', fontSize: 11, marginTop: 3 },
+  modelSwitch: { flexDirection: 'row', gap: 7, paddingHorizontal: 20, paddingTop: 9 }, modelChip: { flex: 1, minHeight: 42, backgroundColor: colors.card, borderColor: colors.line, borderWidth: 1, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 6 }, modelChipActive: { backgroundColor: colors.mint, borderColor: colors.green }, modelChipText: { color: colors.ink, fontSize: 10, fontWeight: '900' }, modelChipTextActive: { color: colors.green }, modelChipRuntime: { color: colors.muted, fontSize: 9, marginTop: 2 },
   messages: { padding: 20, paddingBottom: 12, flexGrow: 1, justifyContent: 'flex-end' }, empty: { backgroundColor: colors.card, borderColor: colors.line, borderWidth: 1, borderRadius: 18, padding: 20, marginBottom: 12 }, emptyTitle: { color: colors.ink, fontSize: 20, fontWeight: '900' }, emptyText: { color: colors.muted, fontSize: 14, lineHeight: 20, marginTop: 8 }, example: { color: colors.green, fontSize: 13, fontWeight: '800', marginTop: 18 },
   typing: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: colors.card, borderColor: colors.line, borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10 }, typingText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
   typingInline: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 22, paddingBottom: 7 },
