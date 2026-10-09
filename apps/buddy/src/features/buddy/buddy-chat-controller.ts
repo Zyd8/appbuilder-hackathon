@@ -70,6 +70,22 @@ export class BuddyChatController {
     return this.engine.readiness(modelId);
   }
 
+  /** Model lifecycle is callable only from explicit app UI controls, never from a tool request. */
+  installModel(modelId: BuddyModelId, includeProjector: boolean, confirmed: boolean): Promise<void> {
+    if (!this.manager) return Promise.reject(new Error('Model manager is unavailable'));
+    return this.manager.install(modelId, confirmed, includeProjector);
+  }
+
+  retryModel(modelId: BuddyModelId): void {
+    if (!this.manager) throw new Error('Model manager is unavailable');
+    this.manager.retry(modelId);
+  }
+
+  deleteModel(modelId: BuddyModelId, confirmed: boolean): Promise<void> {
+    if (!this.manager) return Promise.reject(new Error('Model manager is unavailable'));
+    return this.manager.delete(modelId, confirmed);
+  }
+
   async close(): Promise<void> {
     await this.engine.dispose();
     await this.db?.closeAsync();

@@ -42,9 +42,12 @@ function fixture(script: AIEngineOutput[]) {
     { name: 'USER.md', text: '# USER\nLocal', revision: '1', bytes: 20, managedEntries: [] },
   ] } as unknown as MemoryRepository;
   const switchModel = jest.fn();
-  const manager = { switchModel } as unknown as ModelManager;
+  const install = jest.fn(async () => undefined);
+  const retry = jest.fn();
+  const remove = jest.fn(async () => undefined);
+  const manager = { switchModel, install, retry, delete: remove } as unknown as ModelManager;
   const controller = new BuddyChatController(memory, engine, reads, writes, undefined, manager);
-  return { controller, generate, create, switchModel, getNote: () => note };
+  return { controller, generate, create, switchModel, install, retry, remove, getNote: () => note };
 }
 
 it('presents confirmed local note read-back separately from a clean answer', async () => {
@@ -65,6 +68,16 @@ it('presents confirmed local note read-back separately from a clean answer', asy
   expect(f.create).toHaveBeenCalledTimes(1);
   expect(f.switchModel).toHaveBeenCalledWith('gemma4-e2b');
   expect(f.getNote()).toMatchObject({ body: 'Call dentist' });
+});
+
+it('keeps manual model lifecycle behind explicit UI confirmation', async () => {
+  const f = fixture([]);
+  await f.controller.installModel('gemma4-e2b', false, true);
+  expect(f.install).toHaveBeenCalledWith('gemma4-e2b', true, false);
+  f.controller.retryModel('gemma4-e2b');
+  expect(f.retry).toHaveBeenCalledWith('gemma4-e2b');
+  await f.controller.deleteModel('gemma4-e2b', true);
+  expect(f.remove).toHaveBeenCalledWith('gemma4-e2b', true);
 });
 
 it('keeps rejection app-owned and never samples a false model final', async () => {
