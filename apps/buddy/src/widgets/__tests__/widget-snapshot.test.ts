@@ -101,4 +101,16 @@ describe('snapshotFromAppData', () => {
     expect(shown.openCount).toBe(notes.length - 1);
     expect(shown.items.some((item) => item.id === 'done')).toBe(false);
   });
+
+  it('keeps private context, proof paths and hidden note bodies out of the widget snapshot', () => {
+    const secret = 'PRIVATE_WIDGET_SENTINEL';
+    const visible = Array.from({ length: WIDGET_MAX_NOTES }, (_, index) => note(`visible-${index}`));
+    const hidden = note('hidden', { body: secret, done: true });
+    const q = { ...quest('safe-quest'), proofPhotoUri: `/private/${secret}.jpg`, rawPrompt: secret } as Quest;
+    const p = { ...profile, botMemory: secret, userMemory: secret, assessmentAnswers: secret };
+    const snapshot = snapshotFromAppData(p, [q], [...visible, hidden]);
+    expect(snapshot.notes.hiddenCount).toBe(1);
+    expect(JSON.stringify(snapshot)).not.toContain(secret);
+    expect(Object.keys(snapshot)).toEqual(['version', 'player', 'quest', 'notes', 'labels']);
+  });
 });

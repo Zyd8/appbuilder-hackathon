@@ -5,6 +5,8 @@
 - Scope: `apps/buddy` chatbot (`src/app/(tabs)/buddy.tsx`, `src/features/buddy/`)
 - Related: ADR-002, ADR-003, ADR-004
 
+Implementation update (2026-10-10): ADR-011 records the app-owned agent and local memory boundary added after this runtime choice. The native Gemma path remains physically unverified for the new tool loop.
+
 ## Context
 
 The Buddy chatbot needed a real on-device model instead of the preview timer reply. The requirements were: Gemma running on Android **and** iOS out of the box, with the least possible integration friction, plus file, image, and audio attachments.
@@ -29,8 +31,8 @@ Use **`llama.rn` 0.13.0-rc.7** with **Gemma 4 GGUF** artifacts.
 - `Gemma Default` = Gemma 4 E2B, `gemma-4-E2B-it-qat-UD-Q2_K_XL.gguf` plus its `mmproj-F16.gguf` projector. Selected by default.
 - `Gemma Pro` = Gemma 4 E4B, `gemma-4-E4B-it-qat-UD-Q2_K_XL.gguf` plus its projector. Opt-in.
 - Artifacts come from the published mobile QAT GGUF repositories (`unsloth/gemma-4-E2B-it-qat-mobile-GGUF`, `unsloth/gemma-4-E4B-it-qat-mobile-GGUF`). The `UD-Q2_K_XL` build is chosen because device free space, not quality, is the binding constraint.
-- `chat-service.ts` caches one `LlamaContext` per model id, releases it before switching, and attaches the projector with `initMultimodal` when the file is present.
-- Images are sent through `media_paths` using the projector. If the projector is missing, the prompt states that the image could not be read rather than silently ignoring it.
+- `llama-rn-gemma-engine.ts` owns one loaded `LlamaContext`, releases it before a model switch, and attaches a verified projector with `initMultimodal` when present. `model-manager.ts` checks pinned artifact size and SHA-256 before declaring readiness.
+- The legacy direct-chat path can send ready images through `media_paths` when the projector supports vision. The new agent controller currently passes text prompts and tool definitions; its attachment behavior still needs physical and integration verification.
 
 ## Explicitly not supported
 
@@ -47,13 +49,13 @@ Use **`llama.rn` 0.13.0-rc.7** with **Gemma 4 GGUF** artifacts.
 
 ## Consequences
 
-- One runtime, one model format, one code path for both platforms.
+- One shared runtime adapter and model format in the source tree for both platforms. This is a code-level architecture claim, not a claim of iOS device verification.
 - The native build gains a C++ dependency; first builds are slow because llama.cpp compiles.
-- Swapping the model family or the runtime means editing `types.ts` and `chat-service.ts` only. The UI, store, and attachment handling do not change.
+- Swapping the model family or runtime requires reviewing the catalog, artifact verifier, native adapter, prompt/tool capabilities, and UI readiness path.
 - Swapping back to LiteRT-LM later would only make sense if `.litertlm` packaging becomes a hard requirement.
 
 ## Verification
 
-- `apps/buddy`: `npx tsc --noEmit`, `npx expo lint`, `npx jest` all pass.
+- `apps/buddy`: automated typecheck, lint, catalog/manager/adapter tests, and scripted agent tests exercise the code path. Run current gates again before release.
 - Expo autolinking and Gradle compile must be re-run after any change to the plugin list or model catalog.
 - A claim of working on-device generation requires a development build on a physical device with the model installed and the network disabled. Until that evidence exists, the feature is reported as unverified.

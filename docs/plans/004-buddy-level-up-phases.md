@@ -1,6 +1,6 @@
 # Buddy: Level Up — Phased Build Plan
 
-- Status: active (Phase 1 complete, Phase 2 next)
+- Status: active (Phase 2 foundations and a bounded Phase 5 agent slice implemented in code; device acceptance pending)
 - Owner: hackathon team
 - Product brief: `docs/app/buddy-level-up-overview.md`
 - Stack decision: `docs/decisions/004-buddy-stack-expo-supabase.md`
@@ -11,6 +11,13 @@
 ## Goal
 
 Ship the brief's Hackathon MVP slice (section 14) as a React Native app, building it in small phases. Phase 1 is a clickable UI shell with synthetic data so the whole app can be seen first. Each later phase swaps one area of preview behavior for the real feature.
+
+## Implementation checkpoint — 2026-10-10
+
+- A versioned deterministic analyzer now derives eight stats and ordered Insight 1/2 from sanitized onboarding answers. Explicit account/guest SQLite repositories hold the profile analysis, quests, check-ins, completion ledger, and daily XP. The existing device-first XP document and max-XP Supabase merge remain authoritative for the total (ADR-010).
+- Typed domain adapters expose current local state to the Buddy agent. The registry enables 15 reads and only `notes.create` for a confirmed write. The write uses the notes domain service, a durable idempotency receipt, and a local read-back before success. USER.md/BOT.md live in app-private storage and have no cloud sync path (ADR-011).
+- Prompt budgeting, response normalization, a presenter, and a controller are implemented. Automated scripted tests exercise read → pending confirmation → local note write → read-back → cleaned answer. This is not a claim that the Gemma tool loop has run on a physical device.
+- The original phase table below remains the feature roadmap. It should not be read as claiming the full Phase 2–5 acceptance gates have passed: UI integration, full regression/build gates, airplane-mode Pixel 9A evidence, and iOS verification remain separate checks.
 
 ## Non-goals (for the hackathon)
 
@@ -80,7 +87,7 @@ The brief's section 15 has been re-sequenced so the UI is visible first and Supa
 - Store: answers save per tap, `onboarded` is derived from `completedAt` (so it survives a restart), sync runs per page, on finish, on restart onboarding and on launch. Login restores the cloud copy and sends finished users to Today.
 - Migration `apps/buddy/supabase/migrations/20261009150000_create_onboarding_assessments.sql` applied (owner-only RLS).
 
-**Still Phase 2:** deterministic scoring from these answers into the Player Profile, a resume-at-page indicator, and SQLite for the remaining data.
+**Current status:** deterministic scoring and versioned SQLite repositories exist, but the full Player/UI migration and restart flow still need final integration and device verification. A resume-at-page indicator remains open.
 
 ## Voice input in Notes (ADR-009) — built
 
@@ -101,7 +108,7 @@ The brief's section 15 has been re-sequenced so the UI is visible first and Supa
 - On-device model quality and speed on the demo phone (brief open question 3); mitigated by Lite mode and the curated library.
 - Who writes the full 60-quest library and in what tone (brief open question 5).
 - Final product name (brief open question 1).
-- Drizzle vs. plain `expo-sqlite` for Phase 2: decide at the start of Phase 2 and record the choice in an ADR.
+- The Phase 2 repositories currently use plain `expo-sqlite` with versioned migrations and explicit namespace keys. ADR-011 records that implemented boundary.
 
 ## Acceptance criteria per phase
 
