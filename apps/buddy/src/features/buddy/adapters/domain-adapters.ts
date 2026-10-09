@@ -157,6 +157,19 @@ export function createBuddyReadPorts(deps: DomainAdapterDependencies): BuddyRead
         return snap(doc.notes.find((note) => note.id === id && !note.deletedAt) ?? null,
           String(doc.agentRevision ?? 0), 'on-device notes');
       },
+      createReceipt: async (idempotencyKey) => {
+        if (!/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) throw new Error('Invalid command key');
+        const doc = notes();
+        const receipt = doc.agentReceipts?.[idempotencyKey];
+        const value = receipt?.value as { id?: unknown; note?: unknown } | undefined;
+        const note = value?.note;
+        const valid = note && typeof note === 'object' && typeof (note as { id?: unknown }).id === 'string' &&
+          typeof (note as { body?: unknown }).body === 'string';
+        const n = valid ? note as NonNullable<typeof doc.notes[number]> : null;
+        return snap(n && receipt ? { id: n.id, revision: receipt.revision, body: n.body,
+          priority: n.priority, date: n.date, area: n.area } : null,
+        String(doc.agentRevision ?? 0), 'on-device note command receipt');
+      },
     },
     memory: { documents: async () => {
       const docs = await deps.memory.readAll();

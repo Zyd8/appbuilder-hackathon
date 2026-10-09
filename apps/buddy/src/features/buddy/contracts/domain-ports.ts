@@ -1,4 +1,4 @@
-import type { CheckIn, Insight, Note, ProfileAnalysis, Quest, StatBlock } from '../../../domain/types';
+import type { CheckIn, Insight, LifeArea, Note, ProfileAnalysis, Quest, StatBlock } from '../../../domain/types';
 import type { Durability, NotesCreateArguments } from './tool-protocol';
 
 export interface ReadSnapshot<T> {
@@ -28,6 +28,10 @@ export interface ProgressReadPort {
 export interface NotesReadPort {
   list(): Promise<ReadSnapshot<Note[]>>;
   byId(id: string): Promise<ReadSnapshot<Note | null>>;
+  /** App-owned receipt inspection lets a stale retry be distinguished from a new stale write. */
+  createReceipt(idempotencyKey: string): Promise<ReadSnapshot<{
+    id: string; revision: string; body: string; priority: Note['priority']; date?: string; area?: LifeArea;
+  } | null>>;
 }
 export interface MemoryReadPort { documents(): Promise<ReadSnapshot<readonly { name: 'USER.md' | 'BOT.md'; text: string }[]>> }
 export interface ModelStatusPort { status(): Promise<ReadSnapshot<unknown>> }

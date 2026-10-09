@@ -60,7 +60,10 @@ it('does not claim a note or receipt when the device write fails', async () => {
 it('reads persisted profile, quests and notes through typed ports', async () => {
   const profile = { revision: 'pa1', stats: { focus: 80 }, insights: [{ id: 'i1' }, { id: 'i2' }] };
   const quest = { id: 'q1', title: 'Focus', status: 'offered' };
-  writeNotes(loadNotes('account-1'));
+  writeNotes({ ...loadNotes('account-1'), agentReceipts: {
+    'create-note-key-0001': { fingerprint: 'fp', revision: '1', value: { id: 'n1',
+      note: { id: 'n1', body: 'Call dentist', priority: 'normal' } } },
+  } });
   const deps = {
     namespace: 'account:account-1', now: () => '2026-10-10T00:00:00.000Z',
     profile: { read: async () => profile },
@@ -76,4 +79,7 @@ it('reads persisted profile, quests and notes through typed ports', async () => 
   expect((await ports.quests.board()).value[0].id).toBe('q1');
   expect((await ports.progress.xpLevelRank()).value.totalXp).toBe(25);
   expect((await ports.notes.list()).durability).toBe('durable');
+  expect((await ports.notes.createReceipt('create-note-key-0001')).value).toMatchObject({
+    id: 'n1', revision: '1', body: 'Call dentist', priority: 'normal',
+  });
 });
