@@ -4,6 +4,7 @@
 - Owner: hackathon team
 - Product brief: `docs/app/buddy-level-up-overview.md`
 - Stack decision: `docs/decisions/004-buddy-stack-expo-supabase.md`
+- Login decision: `docs/decisions/005-google-login-before-onboarding.md`
 - Code: `apps/buddy/`
 
 ## Goal
@@ -12,7 +13,9 @@ Ship the brief's Hackathon MVP slice (section 14) as a React Native app, buildin
 
 ## Non-goals (for the hackathon)
 
-Widgets, live news/weather, story cards, story arcs, accounts, and multi-user sync (brief section 14). Supabase backup stays opt-in and arrives last (Phase 7).
+Widgets, live news/weather, story cards, story arcs, and multi-user sync (brief section 14). Supabase backup of user content stays opt-in and arrives last (Phase 7).
+
+**Change (ADR-005):** a Google account is now required before onboarding. Only identity data (id, email, name, photo) goes to Supabase `public.profiles`; everything else stays on the device.
 
 ## Assumptions
 
@@ -55,6 +58,19 @@ The brief's section 15 has been re-sequenced so the UI is visible first and Supa
 - Mascot and app icons are placeholders.
 - Web is not a target; only the Android bundle was verified.
 - Not yet run on a physical device in this phase.
+
+## Google login before onboarding (ADR-005) — built
+
+- Welcome → **Let's begin** → `/onboarding/login` (required, no skip) → questions. Already signed-in users skip straight to questions.
+- `src/lib/auth.ts`: Supabase OAuth in an in-app browser (PKCE, `expo-web-browser`), a reachability check for a clear offline message, and a retry of pending profile upserts on launch.
+- `src/domain/account.ts`: profile mapping, redirect parsing, local-first save (unit-tested).
+- `src/lib/account-storage.ts`: cached profile in on-device `localStorage`.
+- Supabase migration `apps/buddy/supabase/migrations/20261009120000_create_profiles.sql` (RLS: owner-only select/insert/update), applied to `appbuilders-hackathon`.
+- Settings: Account card with sign-out and a "not saved to your account yet" note.
+
+**Limitations:** the first launch needs internet; the browser-based flow should be refactored to native sign-in (`docs/todo/001-native-google-signin.md`); sign-out does not delete the cloud row; onboarding progress is still in memory (Phase 2).
+
+**Manual setup:** Google Cloud Web OAuth client (redirect `https://<project-ref>.supabase.co/auth/v1/callback`) → Supabase Google provider; Supabase redirect URLs `exp://**` and `buddylevelup://**`.
 
 ## Risks and open questions
 

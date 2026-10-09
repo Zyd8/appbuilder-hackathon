@@ -9,11 +9,13 @@ import { Card } from '@/components/card';
 import { OnDeviceBadge } from '@/components/on-device-badge';
 import { Screen } from '@/components/screen';
 import { t } from '@/i18n';
+import { usePreviewStore } from '@/state/preview-store';
 import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 
 export default function Welcome() {
   const { colors } = useTheme();
+  const signedIn = usePreviewStore((s) => Boolean(s.account));
   return (
     <Screen edges={['top', 'bottom']}>
       <View style={styles.hero}>
@@ -36,7 +38,11 @@ export default function Welcome() {
         </AppText>
       </Card>
 
-      <Button label={t('onboarding.welcome.start')} icon="arrow-forward" onPress={() => router.push('/onboarding/questions')} />
+      <Button
+        label={t('onboarding.welcome.start')}
+        icon="arrow-forward"
+        onPress={() => router.push(signedIn ? '/onboarding/questions' : '/onboarding/login')}
+      />
       <AppText variant="caption" color="textMuted" style={styles.center}>
         {t('onboarding.welcome.time')}
       </AppText>
