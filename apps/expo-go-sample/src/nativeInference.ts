@@ -1,5 +1,5 @@
 import type { SearchHit } from './retrieval';
-import { getModelProfile, ModelId } from './modelRegistry';
+import { ModelId } from './modelRegistry';
 
 export type NativeQwenResult = {
   text: string;
@@ -41,7 +41,19 @@ export async function generateWithQwen(modelPath: string, question: string, sour
 }
 
 export async function generateWithSelectedModel(modelId: ModelId, modelPath: string, question: string, sources: SearchHit[]) {
-  const profile = getModelProfile(modelId);
+  async function generateWithGemma(profileId: ModelId, modelPath: string, question: string, sources: SearchHit[]) {
+    if (!modelPath.trim()) throw new Error('Gemma model path is not configured. Install the .litertlm model on the device first.');
+    const { default: liteRt } = await import('../modules/pocketops-litert-lm/src/PocketOpsLiteRTLMModule');
+    const sourceText = sources.map((source) => `[${source.sectionId}] ${source.heading}: ${source.body}`).join('\n');
+    await liteRt.initialize(modelPath);
+    try {
+      const text = await liteRt.generate(`Answer only from these local sources. Question: ${question}\n\nSources:\n${sourceText || '(no matching local sources)'}`);
+      return { text, model: profileId === 'gemma3n-e2b' ? 'Gemma 3n E2B' : 'Gemma 3n E4B', runtime: 'LiteRT-LM' as const };
+    } finally {
+      await liteRt.release();
+    }
+  }
+
   if (modelId === 'qwen3-1.7b') return generateWithQwen(modelPath, question, sources);
-  throw new Error(`${profile.label} is selectable, but its ${profile.runtime} native adapter is not installed yet. Qwen3 remains the working on-device model.`);
+  return generateWithGemma(modelId, modelPath, question, sources);
 }
