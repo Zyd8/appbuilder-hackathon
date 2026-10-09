@@ -9,17 +9,22 @@ type ChipProps = {
   label: string;
   selected?: boolean;
   onPress?: () => void;
+  /** "compact" chips size to their label so several fit on one row. */
+  size?: 'md' | 'compact';
+  accessibilityLabel?: string;
 };
 
-export function Chip({ label, selected = false, onPress }: ChipProps) {
+export function Chip({ label, selected = false, onPress, size = 'md', accessibilityLabel }: ChipProps) {
   const { colors } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
+      accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,
+        size === 'compact' && styles.compact,
         {
           backgroundColor: selected ? colors.primary : colors.surface,
           borderColor: selected ? colors.primary : colors.border,
@@ -41,5 +46,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     minHeight: 44,
     justifyContent: 'center',
+  },
+  compact: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    minHeight: 40,
   },
 });
