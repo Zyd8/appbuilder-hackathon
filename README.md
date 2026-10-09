@@ -34,6 +34,20 @@ Build for graceful degradation:
 
 ## Current direction
 
+**Buddy: Level Up** (`apps/buddy/`) is the main hackathon app: self-improvement quests and a personal AI companion that run on the device and work offline. It is built in phases. Phase 1 (a clickable UI shell with preview data) is done.
+
+- Product brief: `docs/app/buddy-level-up-overview.md`
+- Phased plan and status: `docs/plans/004-buddy-level-up-phases.md`
+- Stack (Expo React Native, local SQLite, optional opt-in Supabase backup): `docs/decisions/004-buddy-stack-expo-supabase.md`
+
+```bash
+cd apps/buddy
+npm install
+npx expo start   # scan the QR code in Expo Go
+```
+
+### PocketOps chat prototype
+
 PocketOps is now intentionally small: an unauthenticated local-AI chat demo. Open the app, type a question, and talk to a bot. The final target is a native Android/iOS build where the model runs inside the app, with Expo Go retained only for the UI and deterministic fallback preview.
 
 The current Expo Go prototype is in `apps/expo-go-sample/`. The native inference path is documented in `docs/decisions/002-native-cross-platform-inference.md`. The optional deterministic local host is only a development fallback, not the primary hackathon solution.
