@@ -30,7 +30,7 @@ Onboarding answers lived only in memory and were lost on restart. They need to s
 
 ## Consequences
 
-- The privacy promise changes: onboarding answers, **including the free-text answer (`free.wish`)**, are stored in the user's Supabase account. Notes, quests, reflections, check-ins and chat still stay on the device. The UI copy (welcome, login, settings) was updated.
+- The privacy promise changes: onboarding answers, **including the free-text answer (`free.wish`)**, are stored in the user's Supabase account. Notes, quests, reflections, check-ins and chat still stay on the device. (Notes are now backed up too, per ADR-008.) The UI copy (welcome, login, settings) was updated.
 - If two devices edit while offline, the last push wins. This is acceptable for a one-time questionnaire, and unsynced local edits are never silently discarded on restore.
 - Sign-out keeps the local document. Restart onboarding clears it on the device and in the cloud. Deleting the account and its cloud data is still open (brief §17).
 - When the questionnaire changes meaning, bump `QUESTIONNAIRE_VERSION`. Stale question ids are ignored by `buildAssessmentContext`.

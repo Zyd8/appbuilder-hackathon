@@ -63,6 +63,8 @@ The app is **light-only**: white background and shades of blue taken from the lo
 | `successSoft` | `#E0F2FA` | Background behind `success` content |
 | `border` | `#D6E3FB` | Card and input borders, dividers, unselected outlines |
 | `glow` | `rgba(0, 71, 217, 0.14)` | Soft blue fill: radar shape, pulse rings, focus glow |
+| `glass` | `rgba(255, 255, 255, 0.62)` | Frosted fill laid over a blur on floating bars (the tab bar) |
+| `glassBorder` | `rgba(255, 255, 255, 0.85)` | Hairline edge of a glass bar |
 | `shadow` | `#001A66` | Shadow tint for elevated elements |
 | `danger` | `#B42318` | Errors and destructive actions **only**. The one non-blue color, kept red so errors are never missed. |
 
@@ -135,25 +137,34 @@ Use the shared component when one exists. Do not restyle it per screen.
 
 | Component | File | Rules |
 | --- | --- | --- |
-| `Screen` | `components/screen.tsx` | Every screen's root. Applies the white background, safe area, gutter, and max width. Tabs use `edges={['top']}`. Full-screen flows use `['top', 'bottom']`. |
+| `Screen` | `components/screen.tsx` | Every screen's root. Applies the white background, safe area, gutter, and max width. Tabs use `edges={['top']}`. Full-screen flows use `['top', 'bottom']`. Scrolling screens keep a focused input above the keyboard (a `KeyboardAvoidingView` on Android, which is edge-to-edge; native keyboard insets on iOS), so screens never add their own keyboard handling. |
 | `AppText` | `components/app-text.tsx` | All text. |
 | `Button` | `components/button.tsx` | Pill shape. `primary` (filled blue) is the one main action per screen, at the bottom. `secondary` uses a `surfaceAlt` fill, and `ghost` is a text-only button (Skip, minor actions). Minimum height 48 (`md`) or 36 (`sm`). |
 | `Card` | `components/card.tsx` | `default` is white with a border, `muted` uses a `surfaceAlt` fill, and `status` adds a blue border and glow (one per screen, for the call to action). |
 | `GradientPanel` | `components/gradient-panel.tsx` | Brand hero panel (section 3.2). |
 | `BrandLogo` | `components/brand-logo.tsx` | Logo rendering (section 2). |
-| `PulseRings` | `components/pulse-rings.tsx` | Rippling blue rings for "working" and intro moments (splash, analysis). `loop={false}` for one-time intros. |
+| `PulseRings` | `components/pulse-rings.tsx` | Rippling blue rings for "working" and intro moments (splash, analysis, the mic while listening). `loop={false}` for one-time intros. `active={false}` hides the rings but keeps the children mounted. |
 | `Chip` | `components/chip.tsx` | Compact pill toggles. For question answers, prefer option tiles. |
-| `Segmented` | `components/segmented.tsx` | Two-to-four-way view switches. |
+| `Segmented` | `components/segmented.tsx` | Two-to-four-way view switches (e.g. the Notes tab's List / Calendar). |
 | `ProgressBar` | `components/progress-bar.tsx` | XP and stat bars. `primary` by default, `accent` for XP, the area color for stats. On the brand gradient, use `color={colors.onPrimary}` with `trackColor={colors.onPrimaryTrack}`. |
 | `SectionHeader` | `components/section-header.tsx` | Overline section label with an optional right-side action. |
 | `OnDeviceBadge` | `components/on-device-badge.tsx` | Shows that work runs on the device. |
 | `Toast` | `components/toast.tsx` | Short, non-blocking confirmations. |
-| `TodayBanner` | `components/today-banner.tsx` | Today's hero (the screen's one `GradientPanel`). Buddy fills the left side, standing on the panel's bottom edge with no backing, and bobs. On the right: a one-line greeting with the first name (shrinks to fit), a level block (white circular "LV n" badge beside the title, a thin `onPrimary` XP bar on an `onPrimaryTrack` track, and the XP count), and Buddy's goal-aligned line in a white speech bubble whose tail points back at Buddy. The line comes from `domain/buddy-nudge.ts`. |
+| `TodayBanner` | `components/today-banner.tsx` | Today's hero (the screen's one `GradientPanel`). `HeroAvatar` fills the left side. On the right: a one-line greeting with the first name (shrinks to fit), a `LevelMeter`, and Buddy's goal-aligned line in a white speech bubble whose tail points back at Buddy. The line comes from `domain/buddy-nudge.ts`. |
+| `HeroAvatar` | `components/hero-avatar.tsx` | The player avatar column shared by every hero banner: stands on the `GradientPanel`'s bottom edge (panel padding `md`), sinks slightly so the panel clips the torso, and bobs (Reduce Motion: still). |
+| `LevelMeter` | `components/level-meter.tsx` | Level block for the brand gradient only: white circular "LV n" badge, the player title, a thin `onPrimary` XP bar on `onPrimaryTrack`, and the XP count. |
+| `PlayerBanner` | `components/player-banner.tsx` | Player tab hero, laid out like `TodayBanner` (`HeroAvatar` left). On the right: the player's name, `LevelMeter`, and white pills for streak and saved rest days. |
+| `StatsOverview` | `components/stats-overview.tsx` | Player stats card: three `surfaceAlt` summary tiles (overall average, strongest area, grow-next area) and the `StatRadar`. The radar is a button that opens the `stats` sheet route, which shows `StatsBreakdown`: every area ranked highest first as a two-column grid of compact `surfaceAlt` tiles (icon chip, name, value, area-colored bar, plain tier from `domain/stats.ts`). Keep sheet content compact: a fit-to-contents sheet cannot scroll. |
+| `ActivityGrid` | `components/activity-grid.tsx` | GitHub-style record of finished quests on the Player tab: 16 Sunday-first week columns of square cells (radius 3), `surfaceAlt` for no activity and `primary` at four strengths for 1, 2, 3, and 4+ quests, a `primary` ring on today, month overlines, and a Less / More legend. Days are bucketed in local time (`domain/activity.ts`). The card carries one summary label for screen readers; the cells are decorative. |
+| `InsightList` | `components/insight-list.tsx` | Strengths and growth areas, one card each, labeled with a `primary` overline and small icon. Rows are icon-led (headline in `bodyStrong`, Buddy's reason in muted `caption`) with no dividers or boxes, always fully visible: do not hide them in accordions. The 30-day focus insight exists in the data but is not shown. |
 | `CheckInPrompt` | `components/check-in-prompt.tsx` | One-row daily check-in (`surfaceAlt`, radius `lg`). After check-in it becomes a `successSoft` confirmation row. Enters with a spring `FadeInLeft`; Reduce Motion gets a 200 ms fade. |
 | `Sheet` | `components/sheet.tsx` | Body of a sheet route (`presentation: 'formSheet'`, `sheetAllowedDetents: 'fitToContents'`, see `halfSheet` in `app/_layout.tsx`). The sheet is as tall as its content, so nothing inside may use `flex: 1` vertically. Draws a grabber, an optional `primary` `eyebrow`, the `title`, and a 40 pt close button on `surfaceAlt`; `footer` holds the actions. Used by quest details (`QuestDetails`) and the daily check-in. |
-| `QuestRow` | `components/quest-row.tsx` | Compact 68 pt quest summary: rank tile (a check when done), one-line title, area · minutes · XP, and a drag handle. The full `QuestCard` opens in the `quest/[id]` modal. |
+| `QuestRow` | `components/quest-row.tsx` | Compact 68 pt quest summary: area icon chip (a check when done), one-line title, area · minutes · XP, and a drag handle. The full quest opens in the `quest/[id]` sheet (`QuestDetails`), from Today and from the Quests tab. Quests show no rank chip, flavor line, or "why" explanation; keep them to title, instruction, area, time, and XP. |
 | `DraggableList` | `components/draggable-list.tsx` | Fixed-height list. Tap opens a row; hold for 280 ms, then drag to reorder (the lifted row scales to 1.03 with a `primary` border). Screen readers get "Move up" / "Move down" actions. Reduce Motion skips the slide and scale. |
-| `NoteList` | `components/note-list.tsx` | Checkable notes in one card (Today and Notes tabs, ADR-007): an add row on top (multi-line on Notes), round checkboxes (a `danger` ring and "High" pill for high priority) that pop when checked, a due date when it is not today, and finished notes sliding to the bottom (`LinearTransition`). Reduce Motion skips the pop and slide. |
+| `NoteList` | `components/note-list.tsx` | Checkable notes in one card (Today and Notes tabs, ADR-007/008): an add row on top (multi-line on Notes, with a `MicButton` when `voice` is set), round checkboxes (a `danger` ring and "High" pill for high priority) that pop when checked, the scheduled date (`calendar-outline` + "Oct 12") when it is not today (with `showAllDates`, used by the Notes list, every dated note shows it and today's reads "Today"), and finished notes sliding to the bottom (`LinearTransition`). Two tap targets per row: the checkbox toggles done, the text opens the `note/[id]` edit sheet. With `datePicker`, a calendar button in the add row opens an unframed `Calendar` inside the card, and the picked date shows as a `primary`-outlined pill chip that clears on tap. Reduce Motion skips the pop and slide. |
+| `Calendar` | `components/calendar.tsx` | Month grid (ADR-008), Sunday first. Header: month as `title`, 40 pt `surfaceAlt` chevron buttons, and a ghost "Today" button when another month is shown. Weekdays are `overline` in `textMuted`. Day cells are at least 44 pt: selected is a filled `primary` circle with `onPrimary` text, today has a 1.5 `primary` ring, days outside the month are at 45%, and days with notes get a 5 pt dot (`accent`, `primary` under the selected day). Every cell's label says the date, "has notes", and "today", so color is never the only signal. Month changes use `FadeInRight`/`FadeInLeft` 280 ms; Reduce Motion gets a 150 ms fade. `framed={false}` drops its card when it sits inside another card. |
+| `GlassTabBar` | `components/glass-tab-bar.tsx` | The bottom tab bar, two floating frosted-glass surfaces (`expo-blur` on iOS, translucent `glass` fill elsewhere) hovering above the safe area: a pill with Today, Quests, Notes, and Player, and a separate round button for Buddy to its right. Pill tabs show an icon and a label. The selected tab is a soft `glow` capsule with a filled `primary` icon and label; the others use outline icons in `textMuted`. The Buddy button is a `primary` icon that turns into a `primary` fill with an `onPrimary` icon when selected. It hides while the keyboard is open. `Screen` adds `TAB_BAR_CLEARANCE` of bottom padding on tab screens so content never sits behind it. |
+| `MicButton` | `components/mic-button.tsx` | Voice input (ADR-009). Round button, 28 pt in the `NoteList` add row (hit slop to 44 pt). Idle: `mic-outline` on `surfaceAlt`. Listening: a `primary` fill with `PulseRings`, showing `stop` in tap mode or `mic` while held. Unavailable: 0.45 opacity, and a tap explains why. Tap toggles, and a 250 ms hold is push-to-talk; screen readers get tap only. While recording, the input is read-only and the send button is hidden. A one-line status or notice caption under the add row (polite live region) can carry an action link (Open settings, Download). |
 | `BuddyMascot` | `components/buddy-mascot.tsx` | Moods: `happy`, `thinking`, `celebrating`, `sleepy`. Match the mood to the state (loading → thinking, offline → sleepy, success → celebrating). |
 
 **Patterns currently local to `onboarding/questions.tsx`.** Move them to `components/` the first time another screen needs them:
@@ -240,14 +251,35 @@ Offline is a normal state, not an error. Make it visible and calm:
 - [ ] Accessibility roles, labels, and states are set. Targets are 44 pt or larger.
 - [ ] Offline, queued, and sync states are visible where the screen depends on the network.
 
-## 14. Current status and known gaps
+## 14. Home-screen widgets
+
+Three widgets (Buddy, Daily quest, Today's notes) exist on iOS (`expo-widgets`) and Android (`react-native-android-widget`). They reuse the app's look, not its components: widget views cannot render React Native views.
+
+| Widget | Mirrors | Content |
+| --- | --- | --- |
+| Buddy | `PlayerBanner` | Brand gradient card (radius 28): avatar, name, white "LV n" badge, player title, thin `onPrimary` XP bar, XP count, white streak and rest pills. The small iOS size and short Android sizes drop the avatar and the rest pill. |
+| Daily quest | `QuestRow` | White card with a `border`, a `primary` overline and "n of m done", then a `surfaceAlt` row: area chip (area icon on a 10% tint, a check on `successSoft` when done), title, area · minutes · XP, chevron. Shows the first quest still to do. All done and empty states use the same calm tile. |
+| Today's notes | `NoteList` | White card, overline and open count, up to five rows (round checkbox, one line of text; `success` check when done, `danger` ring for high priority), and a filled `primary` pill "Add a note". |
+
+Rules:
+
+- **Tokens, not hex.** Android imports them. The iOS widget body runs in an isolated runtime with no imports, so `widget-theme.ts` picks the tokens and passes them in as the `theme` prop. Strings are formatted with `t()` when the snapshot is built (`widgets/widget-snapshot.ts`) and shipped in it, for the same reason.
+- **One data shape.** `snapshotFromAppData` builds what both platforms draw. The root layout writes it and calls `refreshWidgets` whenever the data changes, so the widgets match the app.
+- **Icons.** Android draws the app's Ionicons through `IconWidget` (the font is registered in `app.json`). iOS uses the closest SF Symbols.
+- **No text fields.** Neither platform can host a text input in a widget. "Add a note" opens the `note/new` sheet with the keyboard up (`buddylevelup:///note/new`); the note is saved to the same on-device store and then shows in the widget and the Notes tab. Tapping a note opens `note/[id]`; the header opens the Notes tab.
+- **Light only.** Widgets set their own white or gradient background, so they do not follow the phone's dark mode.
+- **Avatar.** The widgets use `assets/images/widget-avatar.png` (240 px), not the 1.6 MB hero art: Android sends widget images to the launcher in memory and a large bitmap is dropped.
+
+## 15. Current status and known gaps
 
 The rules above apply to all new work. The app does not follow all of them yet:
 
 - **Fully on-system:** the splash (`app/index.tsx`), the landing page (`onboarding/index.tsx`), the questions (`onboarding/questions.tsx`), and the analysis screen (`onboarding/analysis.tsx`).
-- **Today** has the banner, compact check-in, compact draggable quest rows, and today's notes (`NoteList`). The Quests tab still shows full `QuestCard`s.
-- **Colors updated, layout not yet restyled:** Quests, Player, Ask Buddy, Notes, Settings, and Check-in. They use the new tokens through the shared components but have not adopted the eyebrow, hero, and motion patterns.
+- **Today** has the banner, compact check-in, compact draggable quest rows, and today's notes (`NoteList`). The Quests tab uses the same rows (tap to open, no drag handle) under a progress summary, and a dated History list.
+- **Player** has the `PlayerBanner` hero (matching Today), `StatsOverview`, the `ActivityGrid` record, and the grouped `InsightList`, with sections rising in. The grid reads the in-memory quest history, so it is empty after a restart until Phase 2 adds SQLite.
+- **Notes** has the List / Calendar toggle, the `Calendar` grid, the `note/[id]` edit sheet, and the pending-backup notice (section 12). Its header has not adopted the eyebrow pattern yet.
+- **Colors updated, layout not yet restyled:** Quests, Ask Buddy, Settings, and Check-in. They use the new tokens through the shared components but have not adopted the eyebrow, hero, and motion patterns.
 - **Buddy mascot** is placeholder art (see the comment in `buddy-mascot.tsx`).
-- **Today banner** temporarily uses `assets/images/simoy-avatar.png` (1500 px, about 1.6 MB) instead of `BuddyMascot`. Replace it, and shrink the file, when the final mascot is ready.
+- **Hero banners** (`HeroAvatar`, used by Today and Player) temporarily use `assets/images/simoy-avatar.png` (1500 px, about 1.6 MB) instead of `BuddyMascot`. Replace it, and shrink the file, when the final mascot is ready.
 - **Google button** uses the Ionicons `logo-google` glyph in a brand-blue button. Before a store release, check it against Google's sign-in branding guidelines.
-- **Native icon and splash changes** appear only in a new development build, not in Expo Go.
+- **Native icon and splash changes** appear only in a new development build, not in Expo Go. The same goes for widget layout changes on iOS and any change to the widget plugin settings in `app.json`.

@@ -74,17 +74,24 @@ export interface PlayerProfile {
   insights: Insight[];
 }
 
-/** One item type for everything the player writes down: a thought, a to-do, or both (ADR-007). */
+export const NOTE_PRIORITIES = ['low', 'normal', 'high'] as const;
+
+/** One item type for everything the player writes down: a thought, a to-do, or both (ADR-007, ADR-008). */
 export interface Note {
+  /** UUID, also the primary key of the cloud row. */
   id: string;
   body: string;
   createdAt: string;
+  /** Bumped on every change; decides which copy wins when syncing. */
+  updatedAt: string;
   /** Every note can be checked off. */
   done: boolean;
-  priority: 'low' | 'normal' | 'high';
-  /** ISO date (YYYY-MM-DD). Notes due today show on the Today tab. */
-  due?: string;
+  priority: (typeof NOTE_PRIORITIES)[number];
+  /** Optional scheduled local date (YYYY-MM-DD). Shows on Today on that day and in the calendar. */
+  date?: string;
   area?: LifeArea;
+  /** Soft delete, kept until the deletion reaches the cloud. */
+  deletedAt?: string;
 }
 
 export interface ChatMessage {

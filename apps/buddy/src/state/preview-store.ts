@@ -1,14 +1,15 @@
 /**
  * Phase 1 store. Drives the clickable UI shell with synthetic data.
- * The account (ADR-005) and onboarding answers (ADR-006) persist on the device; everything else
- * is still in memory and is lost on restart until Phase 2 adds SQLite.
+ * The account (ADR-005), onboarding answers (ADR-006) and notes (ADR-008) persist on the device;
+ * everything else is still in memory and is lost on restart until Phase 2 adds SQLite.
  */
+import { randomUUID } from 'expo-crypto';
 import { create } from 'zustand';
 
+import { useToast } from '@/components/toast';
 import { QUEST_LIBRARY } from '@/data/quest-library';
 import {
   PREVIEW_CHAT,
-  PREVIEW_NOTES,
   PREVIEW_PROFILE,
   previewDailyQuests,
   previewSideQuests,
@@ -34,7 +35,8 @@ import type {
   Quest,
 } from '@/domain/types';
 import { applyOrder } from '@/domain/reorder';
-import { cleanNoteBody } from '@/domain/notes';
+import { createNote, editNote, softDelete, toggleDone, visibleNotes } from '@/domain/notes';
+import { emptyNotesDoc, pendingCount, type NotesDoc, type StoredNote } from '@/domain/notes-sync';
 import { grantXp, levelFromTotalXp } from '@/domain/xp';
 import { pickBuddyAttachments } from '@/features/buddy/attachment-service';
 import { generateBuddyReply } from '@/features/buddy/chat-service';
@@ -48,12 +50,22 @@ import {
 import { loadCachedProfile } from '@/lib/account-storage';
 import { loadAssessment, writeAssessment } from '@/lib/assessment-storage';
 import { restoreAssessment, syncPendingAssessment } from '@/lib/assessment-sync';
+import { loadNotes, writeNotes } from '@/lib/notes-storage';
+import { scheduleNotesSync, syncNotes } from '@/lib/notes-sync';
 
 export const FREE_REROLLS_PER_DAY = 2;
 
 export interface CompletionResult {
   granted: number;
   leveledUpTo?: number;
+}
+
+/** Backup state of the notes, shown honestly in the UI (never "synced" before it is confirmed). */
+export interface NotesSyncState {
+  status: 'idle' | 'syncing' | 'failed';
+  /** Changes saved on the device that have not reached the cloud yet. */
+  pending: number;
+  lastSyncedAt?: string;
 }
 
 interface PreviewState {
@@ -71,7 +83,10 @@ interface PreviewState {
   sideQuests: Quest[];
   history: Quest[];
   checkIn?: CheckIn;
+  /** Visible notes (no deletions). The full device document lives in `notesDoc`. */
   notes: Note[];
+  notesDoc?: NotesDoc;
+  notesSync: NotesSyncState;
   chat: ChatMessage[];
   buddyTyping: boolean;
   /** Model the user picked; Gemma Default unless they switch. */
@@ -97,8 +112,13 @@ interface PreviewState {
   reorderDailyQuests: (ids: string[]) => void;
   saveCheckIn: (checkIn: Omit<CheckIn, 'date'>) => void;
   toggleNote: (noteId: string) => void;
-  /** Add a note (newest first). `dueToday` puts it on the Today tab. Blank input is ignored. */
-  addNote: (body: string, options?: { dueToday?: boolean }) => void;
+  /** Add a note (newest first), optionally scheduled for `date`. Blank input is ignored. */
+  addNote: (body: string, options?: { date?: string }) => void;
+  /** Change a note's text and/or date. Passing `date: undefined` clears the date. */
+  updateNote: (noteId: string, changes: { body?: string; date?: string }) => void;
+  deleteNote: (noteId: string) => void;
+  /** Back up pending notes and pull other devices' changes. Fire-and-forget; failures stay pending. */
+  syncNotes: () => void;
   sendChat: (text: string) => void;
   setModel: (modelId: BuddyModelId) => void;
   addAttachments: () => Promise<void>;
@@ -120,7 +140,6 @@ function initialState() {
     sideQuests: previewSideQuests(),
     history: [],
     checkIn: undefined,
-    notes: PREVIEW_NOTES,
     chat: PREVIEW_CHAT,
     buddyTyping: false,
     selectedModelId: DEFAULT_BUDDY_MODEL,
@@ -132,6 +151,15 @@ function initialState() {
 
 function assessmentState(doc: AssessmentDoc | undefined) {
   return { assessment: doc, answers: answerValues(doc), onboarded: Boolean(doc?.completedAt) };
+}
+
+function notesState(doc: NotesDoc | undefined) {
+  return { notesDoc: doc, notes: visibleNotes(doc?.notes ?? []) };
+}
+
+/** Fresh notes for a newly loaded account; sync status starts from what is still pending. */
+function loadedNotesState(doc: NotesDoc | undefined) {
+  return { ...notesState(doc), notesSync: { status: 'idle', pending: pendingCount(doc) } as NotesSyncState };
 }
 
 const nowIso = () => new Date().toISOString();
@@ -157,17 +185,43 @@ function localBuddyContext(state: { profile: PlayerProfile; dailyQuests: Quest[]
   ];
 }
 
+/**
+ * Apply a change to the notes. Reads the device copy (not memory) so cloud notes merged by a sync
+ * in the meantime are never overwritten, saves it, then schedules a backup.
+ * Without an account, notes live in memory only.
+ */
+function changeNotes(change: (notes: StoredNote[]) => StoredNote[]) {
+  const { account, notesDoc } = usePreviewStore.getState();
+  const userId = account?.id;
+  const base = userId ? loadNotes(userId) : (notesDoc ?? emptyNotesDoc('local'));
+  const doc: NotesDoc = { ...base, notes: change(base.notes) };
+  if (userId) writeNotes(doc);
+  usePreviewStore.setState((s) => ({ ...notesState(doc), notesSync: { ...s.notesSync, pending: pendingCount(doc) } }));
+  if (userId) scheduleNotesSync(() => usePreviewStore.getState().syncNotes());
+}
+
+function changeNote(noteId: string, change: (note: StoredNote, now: string) => StoredNote) {
+  changeNotes((notes) => {
+    const now = nowIso();
+    return notes.map((note) => (note.id === noteId && !note.deletedAt ? change(note, now) : note));
+  });
+}
+
 export const usePreviewStore = create<PreviewState>()((set, get) => ({
   ...initialState(),
   account: cachedAccount,
   ...assessmentState(cachedAccount ? loadAssessment(cachedAccount.id) : undefined),
+  ...loadedNotesState(cachedAccount ? loadNotes(cachedAccount.id) : undefined),
 
   setAccount: (account) =>
     set((s) =>
-      s.account?.id === account.id ? { account } : { account, ...assessmentState(loadAssessment(account.id)) },
+      s.account?.id === account.id
+        ? { account }
+        : { account, ...assessmentState(loadAssessment(account.id)), ...loadedNotesState(loadNotes(account.id)) },
     ),
 
-  clearAccount: () => set({ ...initialState(), account: undefined, assessment: undefined }),
+  clearAccount: () =>
+    set({ ...initialState(), ...loadedNotesState(undefined), account: undefined, assessment: undefined }),
 
   restoreAssessment: async () => {
     const userId = get().account?.id;
@@ -257,21 +311,37 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
 
   saveCheckIn: (checkIn) => set({ checkIn: { ...checkIn, date: todayIso() } }),
 
-  toggleNote: (noteId) =>
-    set((s) => ({ notes: s.notes.map((note) => (note.id === noteId ? { ...note, done: !note.done } : note)) })),
+  toggleNote: (noteId) => changeNote(noteId, toggleDone),
 
   addNote: (body, options) => {
-    const clean = cleanNoteBody(body);
-    if (!clean) return;
-    const note: Note = {
-      id: localId('note'),
-      body: clean,
-      createdAt: new Date().toISOString(),
-      priority: 'normal',
-      done: false,
-      due: options?.dueToday ? todayIso() : undefined,
-    };
-    set((s) => ({ notes: [note, ...s.notes] }));
+    const note = createNote(randomUUID(), body, nowIso(), options?.date);
+    if (!note) return;
+    changeNotes((notes) => [{ ...note, syncedAt: null }, ...notes]);
+  },
+
+  updateNote: (noteId, changes) => changeNote(noteId, (note, now) => editNote(note, changes, now)),
+
+  deleteNote: (noteId) => changeNote(noteId, softDelete),
+
+  syncNotes: () => {
+    const userId = get().account?.id;
+    if (!userId) return;
+    set((s) => ({ notesSync: { ...s.notesSync, status: 'syncing' } }));
+    const stillSameUser = () => get().account?.id === userId;
+    void syncNotes(userId, (doc) => {
+      if (stillSameUser()) set(notesState(doc));
+    }).then(({ doc, ok, conflicts }) => {
+      if (!stillSameUser()) return;
+      set((s) => ({
+        ...notesState(doc),
+        notesSync: {
+          status: ok ? 'idle' : 'failed',
+          pending: pendingCount(doc),
+          lastSyncedAt: ok ? nowIso() : s.notesSync.lastSyncedAt,
+        },
+      }));
+      if (conflicts > 0) useToast.getState().show(t('notes.sync.conflict'));
+    });
   },
 
   sendChat: (text) => {

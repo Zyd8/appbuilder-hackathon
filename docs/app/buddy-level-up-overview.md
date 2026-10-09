@@ -15,7 +15,7 @@ Buddy: Level Up combines two ideas:
 
 The two are one loop: **everyday tasks and quests live in the same list, and the companion is the thing that understands you well enough to pick quests that fit.**
 
-All core AI runs **on the device**. Notes, check-ins, quests, and progress stay on the phone. A one-time **Google sign-in** is required before onboarding (ADR-005). The account identity (name, email, photo) and the **onboarding answers** are backed up to the user's account (ADR-006); the phone copy stays the source of truth. After that first sign-in, the app works fully offline.
+All core AI runs **on the device**. Check-ins, quests, and progress stay on the phone. A one-time **Google sign-in** is required before onboarding (ADR-005). The account identity (name, email, photo), the **onboarding answers** (ADR-006), and **notes** (ADR-008) are backed up to the user's account; the phone copy stays the source of truth. After that first sign-in, the app works fully offline.
 
 ### The one-sentence pitch
 "Answer a few questions, and a private on-device AI builds you a personal quest board for growing in ways that go beyond the gym, and after one quick sign-in it all works with no internet."
@@ -25,7 +25,7 @@ Students, young professionals, and freelancers who want to grow (skills, discipl
 
 ### Product principles
 1. **Quests are personal and varied.** Never just "go to the gym". Quests come from the user's own answers and span many life areas.
-2. **Private by default.** Personal content (quests, notes, reflections, check-ins, chat) never leaves the device unless the user shares something. The only cloud data is the sign-in identity (name, email, photo) and the onboarding answers, kept in the user's own account (ADR-005, ADR-006).
+2. **Private by default.** Personal content (quests, reflections, check-ins, chat) never leaves the device unless the user shares something. The only cloud data is the sign-in identity (name, email, photo), the onboarding answers, and a backup of the user's notes, kept in the user's own account (ADR-005, ADR-006, ADR-008).
 3. **Offline-first.** Every core feature works with no connection once the user has signed in once.
 4. **Encouraging, never punishing.** No penalty zones, no streak-shame, no "you failed" screens. Missing days pauses progress; it never removes it.
 5. **Honest AI.** The AI's analysis is a suggestion to reflect on, not a diagnosis. The user can edit or reject any insight or quest.
@@ -165,10 +165,13 @@ Once a week (user-triggered or a gentle prompt), the on-device AI summarizes:
 - Optional re-run of a short mini-assessment every 4 weeks to update the profile.
 
 ### 3.7 Notes and Reminders (Companion Layer)
-- **Notes replace tasks (ADR-007):** one list, and any note can be checked off. Notes can have a due date, priority, and life area.
-- Quick-capture notes with "Organize with Buddy": the AI proposes a due date, priority, and area for a note, shown as a preview the user confirms.
-- **Notes due today and quests share the Today screen**, so the user sees one plan, not two apps. A note can optionally be tagged with a life area to earn small XP.
+- **Notes replace tasks (ADR-007):** one list, and any note can be checked off. Notes can have an optional **scheduled date** (picked from a calendar; it replaced the due date, ADR-008), priority, and life area.
+- **Saved and backed up (built, ADR-008):** every change is saved on the phone first, then backed up to `public.notes` in the background (on launch, on returning to the app, and shortly after edits). Pending changes show a "saved on this phone" notice with Retry. Edits from another device are merged per note (newest wins; a losing text edit is kept as a separate note). Deletes are soft so every device learns about them.
+- **Notes tab (built):** a List / Calendar toggle. List shows every note; Calendar shows a month grid with dots on days that have notes and the selected day's notes. Undated notes never appear in the calendar. Tap a note's text to edit its text or date, or delete it.
+- Quick-capture notes with "Organize with Buddy": the AI proposes a date, priority, and area for a note, shown as a preview the user confirms.
+- **Notes scheduled for today (and undated notes) and quests share the Today screen**, so the user sees one plan, not two apps. A note can optionally be tagged with a life area to earn small XP.
 - Local reminders (work offline), snooze, quiet hours, notification categories.
+- **Voice capture (built, ADR-009):** tap the mic to start and stop, or hold to talk. Speech becomes text on the device (no cloud fallback, audio never saved) and lands in the note box for editing. Needs a development build; Android 13+ / iOS 17+.
 
 ### 3.8 Nudges
 - Short, optional suggestions on the Today screen, in widgets, and (rarely) as notifications.
@@ -217,7 +220,7 @@ Settings (via Player or a gear icon): **account (name, email, sign out)**, prefe
 | Database | **SQLite (expo-sqlite) + Drizzle ORM** | All data local. |
 | On-device LLM | Small (about 1–2B parameter) 4-bit model behind an `AIEngine` interface (MediaPipe LLM Inference on Android, llama.cpp / MLX bindings on iOS) | Prefer platform AI (Apple Foundation Models, Gemini Nano) where available. |
 | Auth (built) | **Supabase Auth, Google provider** via `expo-web-browser` + `expo-linking`, PKCE (S256) with an `expo-crypto` polyfill | Browser flow works in Expo Go; native sign-in planned. See ADR-005. |
-| Cloud data (built) | **Supabase Postgres**: `public.profiles`, `public.onboarding_assessments` | Owner-only RLS. Identity plus onboarding answers; other user content stays local. |
+| Cloud data (built) | **Supabase Postgres**: `public.profiles`, `public.onboarding_assessments`, `public.notes` | Owner-only RLS. Identity, onboarding answers, and a notes backup (ADR-008); other user content stays local. |
 | Notifications | expo-notifications (local scheduling) | |
 | Animations | Reanimated + Lottie | Level-ups, XP bars. |
 | Charts | react-native-svg (radar chart for stats) | |
@@ -262,7 +265,7 @@ All IDs UUID; all tables have `created_at`, `updated_at`; soft-delete where rele
 - `quest_feedback` (id, quest_id, signal: too_easy | too_hard | not_relevant | loved)
 - `checkins` (id, date, mood, energy, focus_text, reflection?)
 - `weekly_reviews` (id, week_start, summary_json)
-- `notes` (checkable, with optional due date, priority, and area; ADR-007), `lists`
+- `notes` (checkable, with optional scheduled date, priority, and area; ADR-007, ADR-008), `lists`. **Built differently (ADR-008):** one JSON document per user in localStorage (`buddy.notes.<userId>`), each note carrying `updatedAt`, `syncedAt`, and an optional `deletedAt` tombstone.
 - `preferences` (key, value_json): quiet hours, nudge cap, blocked quest types, physical quests on/off, difficulty bias
 - `nudges` (id, type, payload_json, shown_at, acted_at?, feedback?)
 - `chat_threads`, `chat_messages`
@@ -275,6 +278,8 @@ Optional: database encryption at rest with a key in secure storage, behind a tog
 - In the cloud (Supabase): `public.profiles` (id → `auth.users.id`, email, display_name, avatar_url, provider, created_at, updated_at). RLS allows select, insert and update only where `auth.uid() = id`; there is no delete policy. Migration: `apps/buddy/supabase/migrations/20261009120000_create_profiles.sql`.
 
 **Onboarding answers in the cloud (built, ADR-006):** `public.onboarding_assessments` (user_id → `auth.users.id`, `answers jsonb` mirroring the device document, questionnaire_version, completed_at, updated_at, created_at). One row per user, idempotent upsert on `user_id`, owner-only RLS. Migration: `apps/buddy/supabase/migrations/20261009150000_create_onboarding_assessments.sql`.
+
+**Notes in the cloud (built, ADR-008):** `public.notes` (id uuid, user_id → `auth.users.id`, body, done, priority, scheduled_on date, area, created_at, updated_at, deleted_at). One row per note, idempotent upsert on `id`, owner-only select/insert/update RLS (no delete policy; deletes are soft). A trigger skips updates older than the stored `updated_at`. Migration: `apps/buddy/supabase/migrations/20261009180000_create_notes.sql`.
 
 ---
 
@@ -309,12 +314,12 @@ Areas are user-editable: users can hide an area or add a custom one later.
 
 ## 10. Privacy and Security
 
-- A Google account is required before onboarding (ADR-005). The cloud stores identity data (name, email, photo) and the onboarding answers, including the free-text answer (ADR-006). Quests, notes, reflections, check-ins, and chat are not stored in the cloud.
+- A Google account is required before onboarding (ADR-005). The cloud stores identity data (name, email, photo), the onboarding answers, including the free-text answer (ADR-006), and the user's notes (ADR-008). Quests, reflections, check-ins, and chat are not stored in the cloud.
 - Analytics, if added, are opt-in, event-level only, and never include answers, notes, or reflections.
 - Just-in-time permission prompts (notifications first; location only if live insights are added).
 - Google client secret lives only in the Supabase dashboard. The app bundles only the Supabase URL and **publishable** key.
 - Settings → Privacy: view stored data, export everything as JSON, delete all data, delete the AI model, toggle encryption.
-- Store privacy labels must remain accurate (name, email, photo, and onboarding answers are collected and linked to the account per ADR-005/006; other user content is not).
+- Store privacy labels must remain accurate (name, email, photo, onboarding answers, and notes are collected and linked to the account per ADR-005/006/008; other user content is not).
 
 ---
 
@@ -361,7 +366,7 @@ A narrow slice that shows the whole idea end to end, fully offline:
 6. **Offline proof:** a visible "Running 100% on your device. No internet used" indicator, and a demo where airplane mode stays on.
 7. **Ask Buddy (minimal):** chat that answers using the player's profile and active quests.
 
-Explicitly cut from the MVP: widgets, live news and weather, story cards, weekly review, story arcs, and cloud sync of user content. Accounts are no longer cut: Google sign-in is in (ADR-005).
+Explicitly cut from the MVP: widgets, live news and weather, story cards, weekly review, story arcs, and cloud sync of user content other than onboarding answers and notes. Accounts are no longer cut: Google sign-in is in (ADR-005). Notes are saved and backed up, with a calendar view (ADR-008).
 
 **Demo script (about 3 minutes):** sign in with Google while online (in Expo Go, run `npm run start:tunnel`) → turn on airplane mode → onboarding → watch the AI analysis appear → open today's quests → complete one → level up → ask Buddy "what should I focus on this week?" and get a personalized answer.
 

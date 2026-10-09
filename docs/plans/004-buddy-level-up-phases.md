@@ -16,7 +16,7 @@ Ship the brief's Hackathon MVP slice (section 14) as a React Native app, buildin
 
 Widgets, live news/weather, story cards, story arcs, and multi-user sync (brief section 14). Supabase backup of user content stays opt-in and arrives last (Phase 7).
 
-**Change (ADR-005):** a Google account is now required before onboarding. Identity data (id, email, name, photo) goes to Supabase `public.profiles`. **ADR-006:** onboarding answers are also backed up to `public.onboarding_assessments`. Everything else stays on the device.
+**Change (ADR-005):** a Google account is now required before onboarding. Identity data (id, email, name, photo) goes to Supabase `public.profiles`. **ADR-006:** onboarding answers are also backed up to `public.onboarding_assessments`. **ADR-008 / plan 005:** notes are saved on the device and backed up to `public.notes`, with an optional scheduled date and a calendar view. Everything else stays on the device.
 
 ## Assumptions
 
@@ -81,6 +81,20 @@ The brief's section 15 has been re-sequenced so the UI is visible first and Supa
 - Migration `apps/buddy/supabase/migrations/20261009150000_create_onboarding_assessments.sql` applied (owner-only RLS).
 
 **Still Phase 2:** deterministic scoring from these answers into the Player Profile, a resume-at-page indicator, and SQLite for the remaining data.
+
+## Voice input in Notes (ADR-009) — built
+
+- Mic in the Notes tab add row (`NoteList` `voice` prop). Tap to start and stop, or hold to talk. Text streams into the draft and is never auto-saved.
+- `src/domain/voice-input.ts` holds the pure state machine, transcript merge and truncation. `src/domain/speech.ts` holds the port and error mapping. 23 unit tests.
+- `src/lib/speech-recognizer.ts` is the `expo-speech-recognition` adapter, **on-device only** (no cloud fallback, no audio saved). `src/lib/use-voice-input.ts` handles the 60 s cap and stops on background or blur.
+- `src/components/mic-button.tsx`; `PulseRings` gained an `active` prop.
+
+**Stubbed / not done:** Today's add row has no mic yet (one prop). No Whisper fallback. English only.
+
+**Limitations:**
+- **This is the first Buddy feature that needs a development build** (`npx expo run:android`). In Expo Go the mic shows "needs the full app build".
+- Needs Android 13+ with the English on-device pack (the app can trigger the download, which needs internet once), or iOS 17+.
+- Not yet verified on a physical device in this change. See ADR-009 for the manual checklist.
 
 ## Risks and open questions
 

@@ -2,17 +2,15 @@
  * Synthetic preview data for Phase 1 (UI shell). Nothing here is real user data.
  * Phase 2 replaces this with SQLite-backed onboarding results; Phase 3 with the quest engine.
  */
-import type { ChatMessage, Note, PlayerProfile, Quest, QuestKind, QuestTemplate } from '@/domain/types';
+import { localIsoDate } from '@/domain/dates';
+import type { ChatMessage, PlayerProfile, Quest, QuestKind, QuestTemplate } from '@/domain/types';
 import { RANK_XP } from '@/domain/xp';
 
 import { QUEST_LIBRARY } from './quest-library';
 
+/** Today's local date (YYYY-MM-DD). */
 export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-export function tomorrowIso(): string {
-  return new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  return localIsoDate();
 }
 
 export function questFromTemplate(template: QuestTemplate, kind: QuestKind, why?: string): Quest {
@@ -122,22 +120,5 @@ export function previewSideQuests(): Quest[] {
     questFromTemplate(template('calm-window-minutes'), 'side'),
   ];
 }
-
-const created = () => new Date().toISOString();
-
-export const PREVIEW_NOTES: Note[] = [
-  { id: 'note-1', body: 'Send project draft to Sam', createdAt: created(), due: todayIso(), priority: 'high', done: false },
-  { id: 'note-2', body: 'Pick up groceries', createdAt: created(), due: todayIso(), priority: 'normal', done: false },
-  { id: 'note-3', body: 'Read chapter 3 for class', createdAt: created(), priority: 'normal', area: 'knowledge', done: false },
-  {
-    id: 'note-4',
-    body: 'Ideas for the poster: bold colors, maybe a hand-drawn title. Ask Mia for feedback by Friday.',
-    createdAt: created(),
-    due: tomorrowIso(),
-    priority: 'normal',
-    area: 'creativity',
-    done: false,
-  },
-];
 
 export const PREVIEW_CHAT: ChatMessage[] = [];

@@ -7,6 +7,7 @@ Self-improvement quests plus a personal AI companion. Private, on-device, and of
 - Stack decision: [`docs/decisions/004-buddy-stack-expo-supabase.md`](../../docs/decisions/004-buddy-stack-expo-supabase.md)
 - Login decision: [`docs/decisions/005-google-login-before-onboarding.md`](../../docs/decisions/005-google-login-before-onboarding.md)
 - On-device AI decision: [`docs/decisions/007-buddy-gemma-native-runtime.md`](../../docs/decisions/007-buddy-gemma-native-runtime.md)
+- Voice dictation decision: [`docs/decisions/009-on-device-voice-dictation.md`](../../docs/decisions/009-on-device-voice-dictation.md)
 
 **Current phase: 1 (UI shell).** Every screen is clickable, using synthetic in-memory preview data that resets on restart.
 
@@ -17,7 +18,13 @@ npm install
 npx expo start
 ```
 
-Scan the QR code with Expo Go (Android or iOS). Phases 1–4 run in Expo Go; Phase 5 (on-device model) needs a development build (`npx expo run:android`).
+Scan the QR code with Expo Go (Android or iOS). Most of the app runs in Expo Go. **Voice input in Notes** (ADR-009) and Phase 5 (on-device model) need a development build:
+
+```bash
+npx expo run:android   # generates android/ (git-ignored), builds, and installs on a connected phone
+```
+
+Voice dictation runs on the device only: Android 13+ with the English speech pack installed (the app offers the download), or iOS 17+.
 
 ## Scripts
 
@@ -42,7 +49,7 @@ One-time setup in the dashboards:
 
 **Testing login in Expo Go:** run `npm run start:tunnel`, not `npx expo start`. On the LAN, Expo Go's redirect URL uses your PC's IP (`exp://192.168.x.x:8081/--/auth/callback`), and Supabase rejects redirect URLs with IP-address hosts even when they are allow-listed, so it falls back to the Site URL. The tunnel gives a hostname (`*.exp.direct`) that matches `exp://**`.
 
-The first launch needs internet to sign in. After that, the cached session lets the app open offline. User content (answers, quests, notes) stays on the device; cloud backup of it is still a Phase 7 opt-in.
+The first launch needs internet to sign in. After that, the cached session lets the app open offline. Onboarding answers (ADR-006) and notes (ADR-008) are saved on the device first and backed up to the account in the background; other user content (quests, check-ins, chat) stays on the device. Notes need the `public.notes` table from `supabase/migrations/20261009180000_create_notes.sql`.
 
 ## On-device model (Ask Buddy)
 

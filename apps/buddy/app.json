@@ -9,7 +9,13 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.appbuilder.buddylevelup"
+      "bundleIdentifier": "com.appbuilder.buddylevelup",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Angat only accesses your photos if you choose to attach one. Photos stay on your phone and are not uploaded.",
+        "NSSpeechRecognitionUsageDescription": "Angat turns your speech into note text on your phone. Audio is not saved or sent anywhere.",
+        "NSMicrophoneUsageDescription": "Angat uses the microphone so you can speak your notes. Speech is turned into text on your phone and the audio is never saved.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +25,10 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.appbuilder.buddylevelup"
+      "package": "com.appbuilder.buddylevelup",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -53,11 +62,128 @@
             "buildArchs": ["arm64-v8a"]
           }
         }
-      ]
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "fonts": [
+            "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf"
+          ],
+          "widgets": [
+            {
+              "name": "BuddyWidget",
+              "label": "Buddy",
+              "description": "A quick look at your level and daily quests.",
+              "minWidth": "250dp",
+              "minHeight": "120dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "BuddyQuestWidget",
+              "label": "Daily Quest",
+              "description": "Your next daily quest at a glance.",
+              "minWidth": "250dp",
+              "minHeight": "120dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "BuddyNotesWidget",
+              "label": "Today's Notes",
+              "description": "A quick look at today's notes.",
+              "minWidth": "250dp",
+              "minHeight": "160dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 3,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ],
+      "./plugins/withAndroidWorkManagerResolution",
+      [
+        "expo-widgets",
+        {
+          "groupIdentifier": "group.com.appbuilder.buddylevelup",
+          "widgets": [
+            {
+              "name": "BuddyWidget",
+              "displayName": "Buddy",
+              "description": "A quick look at your level and daily quests.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ]
+              }
+            },
+            {
+              "name": "BuddyQuestWidget",
+              "displayName": "Daily Quest",
+              "description": "Your next daily quest at a glance.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ]
+              }
+            },
+            {
+              "name": "BuddyNotesWidget",
+              "displayName": "Today's Notes",
+              "description": "A quick look at today's notes.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Angat uses the microphone so you can speak your notes. Speech is turned into text on your phone and the audio is never saved.",
+          "speechRecognitionPermission": "Angat turns your speech into note text on your phone. Audio is not saved or sent anywhere."
+        }
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "ExpoWidgetsTarget",
+                  "bundleIdentifier": "com.appbuilder.buddylevelup.ExpoWidgetsTarget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.appbuilder.buddylevelup"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "1afda8dd-406f-48c3-b96c-0b8121b7dfd0"
+      }
+    },
+    "owner": "werddd"
   }
 }
