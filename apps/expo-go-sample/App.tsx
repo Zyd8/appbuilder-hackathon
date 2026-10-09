@@ -59,6 +59,7 @@ export default function App() {
     setMessages(withUser);
     await persistMessages(withUser);
     setBusy(true);
+    setStatus('Qwen3 1.7B · typing…');
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
     try {
       const hits = searchGuides(guides, prompt);
@@ -103,6 +104,7 @@ export default function App() {
           renderItem={({ item }) => <View style={[styles.bubble, item.role === 'user' ? styles.userBubble : styles.botBubble]}><Text style={item.role === 'user' ? styles.userText : styles.botText}>{item.text}</Text>{item.mode ? <Text style={styles.modeText}>{item.mode}</Text> : null}</View>}
         />
         {error ? <View style={styles.error}><Text style={styles.errorText}>{error}</Text><TextInput value={modelPath} onChangeText={setModelPath} autoCapitalize="none" autoCorrect={false} style={styles.pathInput} placeholder="file:///path/to/Qwen3-1.7B-Q8_0.gguf" placeholderTextColor={colors.muted} /></View> : null}
+        {busy ? <View style={styles.typingInline}><ActivityIndicator color={colors.green} size="small" /><Text style={styles.typingText}>Qwen is typing…</Text></View> : null}
         <View style={styles.composer}><TextInput value={question} onChangeText={setQuestion} onSubmitEditing={send} editable={!busy} returnKeyType="send" placeholder="Message Qwen3…" placeholderTextColor={colors.muted} style={styles.input} /><Pressable onPress={send} disabled={busy || !question.trim()} style={[styles.send, (busy || !question.trim()) && styles.sendDisabled]}>{busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.sendText}>↑</Text>}</Pressable></View>
         <Text style={styles.disclaimer}>Synthetic demo data · model stays on this device</Text>
       </KeyboardAvoidingView>
@@ -118,6 +120,7 @@ const styles = StyleSheet.create({
   modelBar: { marginHorizontal: 20, backgroundColor: colors.navy, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 11 }, modelName: { color: '#FFFFFF', fontWeight: '900', fontSize: 14 }, modelStatus: { color: '#B7E8D8', fontSize: 11, marginTop: 3 },
   messages: { padding: 20, paddingBottom: 12, flexGrow: 1, justifyContent: 'flex-end' }, empty: { backgroundColor: colors.card, borderColor: colors.line, borderWidth: 1, borderRadius: 18, padding: 20, marginBottom: 12 }, emptyTitle: { color: colors.ink, fontSize: 20, fontWeight: '900' }, emptyText: { color: colors.muted, fontSize: 14, lineHeight: 20, marginTop: 8 }, example: { color: colors.green, fontSize: 13, fontWeight: '800', marginTop: 18 },
   typing: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: colors.card, borderColor: colors.line, borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10 }, typingText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
+  typingInline: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 22, paddingBottom: 7 },
   bubble: { maxWidth: '90%', padding: 14, borderRadius: 16, marginBottom: 10 }, userBubble: { alignSelf: 'flex-end', backgroundColor: colors.green, borderBottomRightRadius: 4 }, botBubble: { alignSelf: 'flex-start', backgroundColor: colors.card, borderColor: colors.line, borderWidth: 1, borderBottomLeftRadius: 4 }, userText: { color: '#FFFFFF', fontSize: 15, lineHeight: 21 }, botText: { color: colors.ink, fontSize: 15, lineHeight: 22 }, modeText: { color: colors.muted, fontSize: 9, fontWeight: '900', marginTop: 8, textTransform: 'uppercase' },
   error: { marginHorizontal: 20, marginBottom: 8, padding: 10, backgroundColor: '#FFF0F0', borderColor: '#F2C3C3', borderWidth: 1, borderRadius: 12 }, errorText: { color: colors.red, fontSize: 12, lineHeight: 17 }, pathInput: { backgroundColor: colors.card, color: colors.ink, borderColor: colors.line, borderWidth: 1, borderRadius: 8, padding: 8, fontSize: 11, marginTop: 8 },
   composer: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, paddingHorizontal: 20 }, input: { flex: 1, minHeight: 50, maxHeight: 120, backgroundColor: colors.card, borderColor: colors.line, borderWidth: 1, borderRadius: 15, paddingHorizontal: 15, paddingVertical: 13, color: colors.ink, fontSize: 15 }, send: { width: 50, height: 50, borderRadius: 15, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' }, sendDisabled: { opacity: 0.4 }, sendText: { color: '#FFFFFF', fontSize: 25, fontWeight: '900' }, disclaimer: { color: colors.muted, textAlign: 'center', fontSize: 10, paddingVertical: 10 },
