@@ -62,6 +62,7 @@ export default function Notes() {
           onAdd={(body, date) => addNote(body, { date })}
           multiline
           datePicker
+          voice
         />
       ) : (
         <>
@@ -86,6 +87,7 @@ export default function Notes() {
             addPlaceholder={t('notes.day.add')}
             onAdd={(body) => addNote(body, { date: selected })}
             multiline
+            voice
           />
         </>
       )}

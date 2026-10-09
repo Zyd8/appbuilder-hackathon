@@ -171,6 +171,7 @@ Once a week (user-triggered or a gentle prompt), the on-device AI summarizes:
 - Quick-capture notes with "Organize with Buddy": the AI proposes a date, priority, and area for a note, shown as a preview the user confirms.
 - **Notes scheduled for today (and undated notes) and quests share the Today screen**, so the user sees one plan, not two apps. A note can optionally be tagged with a life area to earn small XP.
 - Local reminders (work offline), snooze, quiet hours, notification categories.
+- **Voice capture (built, ADR-009):** tap the mic to start and stop, or hold to talk. Speech becomes text on the device (no cloud fallback, audio never saved) and lands in the note box for editing. Needs a development build; Android 13+ / iOS 17+.
 
 ### 3.8 Nudges
 - Short, optional suggestions on the Today screen, in widgets, and (rarely) as notifications.

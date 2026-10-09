@@ -16,13 +16,16 @@ import { LIFE_AREA_ICONS } from '@/data/life-areas';
 import { shortDateLabel } from '@/domain/dates';
 import { NOTE_MAX, sortNotes } from '@/domain/notes';
 import type { Note } from '@/domain/types';
+import type { VoiceNotice } from '@/domain/voice-input';
 import { t } from '@/i18n';
+import { useVoiceInput } from '@/lib/use-voice-input';
 import { usePreviewStore } from '@/state/preview-store';
 import { areaColors, radius, spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 
 import { AppText } from './app-text';
 import { Calendar } from './calendar';
+import { MicButton } from './mic-button';
 
 type NoteListProps = {
   notes: Note[];
@@ -35,6 +38,8 @@ type NoteListProps = {
   multiline?: boolean;
   /** Show a calendar button in the add row to schedule the new note. */
   datePicker?: boolean;
+  /** Show a mic for on-device dictation (ADR-009). */
+  voice?: boolean;
 };
 
 /** Checkable notes in one card: an add row on top, open notes next, finished notes sink to the bottom. */
@@ -46,12 +51,15 @@ export function NoteList({
   onAdd,
   multiline = false,
   datePicker = false,
+  voice = false,
 }: NoteListProps) {
   const { colors } = useTheme();
   const reduceMotion = useReducedMotion();
   const [draft, setDraft] = useState('');
   const [draftDate, setDraftDate] = useState<string>();
   const [picking, setPicking] = useState(false);
+  const mic = useVoiceInput({ enabled: voice, draft, setDraft });
+  const recording = mic.state.status !== 'idle';
   const sorted = sortNotes(notes);
   const layout = reduceMotion ? undefined : LinearTransition.duration(250);
 
@@ -76,6 +84,8 @@ export function NoteList({
           multiline={multiline}
           returnKeyType={multiline ? 'default' : 'done'}
           submitBehavior={multiline ? 'newline' : 'blurAndSubmit'}
+          // Read-only while dictating so typing and speech never fight over the text.
+          editable={!recording}
           accessibilityLabel={addPlaceholder}
           style={[styles.input, { color: colors.text }]}
         />
@@ -90,7 +100,7 @@ export function NoteList({
             <Ionicons name={draftDate ? 'calendar' : 'calendar-outline'} size={18} color={colors.primary} />
           </Pressable>
         ) : null}
-        {draft.trim() ? (
+        {draft.trim() && !recording ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('notes.add')}
@@ -100,7 +110,20 @@ export function NoteList({
             <Ionicons name="arrow-up" size={16} color={colors.onPrimary} />
           </Pressable>
         ) : null}
+        {/* Last in the row so it never shifts under a holding finger when the send button appears. */}
+        {voice ? (
+          <MicButton
+            status={mic.state.status}
+            mode={'mode' in mic.state ? mic.state.mode : undefined}
+            available={mic.availability.ready}
+            onTap={mic.onTap}
+            onHoldStart={mic.onHoldStart}
+            onHoldEnd={mic.onHoldEnd}
+          />
+        ) : null}
       </View>
+
+      {voice ? <VoiceStatus mic={mic} /> : null}
 
       {draftDate ? (
         <View style={styles.chipRow}>
@@ -150,6 +173,51 @@ export function NoteList({
       ))}
     </View>
   );
+}
+
+/** One line under the add row: what the mic is doing, or why it stopped. */
+function VoiceStatus({ mic }: { mic: ReturnType<typeof useVoiceInput> }) {
+  const { colors } = useTheme();
+  const { state } = mic;
+  let text: string | undefined;
+  let action: { label: string; onPress: () => void } | undefined;
+
+  if (state.status === 'listening') {
+    text = t(state.mode === 'tap' ? 'notes.voice.listeningTap' : 'notes.voice.listeningHold');
+  } else if (state.status === 'requesting') {
+    text = t('notes.voice.preparing');
+  } else if (state.status === 'finalizing') {
+    text = t('notes.voice.finishing');
+  } else if (state.notice) {
+    text = noticeText(state.notice);
+    if (state.notice === 'not-allowed') action = { label: t('notes.voice.openSettings'), onPress: mic.openSettings };
+    if (state.notice === 'language-not-supported') action = { label: t('notes.voice.downloadPack'), onPress: () => void mic.downloadLanguagePack() };
+  }
+  if (!text) return null;
+
+  return (
+    <View style={styles.voiceStatus} accessibilityLiveRegion="polite">
+      <AppText variant="caption" color="textMuted" style={styles.voiceText}>
+        {text}
+      </AppText>
+      {action ? (
+        <Pressable accessibilityRole="button" onPress={action.onPress} hitSlop={8}>
+          <AppText variant="caption" color="primary">
+            {action.label}
+          </AppText>
+        </Pressable>
+      ) : null}
+      {state.status === 'idle' ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={t('notes.voice.dismiss')} onPress={mic.dismiss} hitSlop={8}>
+          <Ionicons name="close" size={14} color={colors.textMuted} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+function noticeText(notice: VoiceNotice): string {
+  return notice === 'truncated' ? t('notes.voice.notice.truncated', { max: NOTE_MAX.toLocaleString() }) : t(`notes.voice.notice.${notice}`);
 }
 
 function NoteRow({ note, today }: { note: Note; today: string }) {
@@ -274,4 +342,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   picker: { paddingBottom: spacing.md },
+  voiceStatus: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingBottom: spacing.sm, flexWrap: 'wrap' },
+  voiceText: { flexShrink: 1 },
 });

@@ -19,17 +19,19 @@ type PulseRingsProps = {
   /** Loop forever (loading states) or play once (intro). */
   loop?: boolean;
   delay?: number;
+  /** False hides the rings but keeps the children mounted (default true). */
+  active?: boolean;
 };
 
 const RING_COUNT = 3;
 const DURATION = 1800;
 
 /** Soft blue rings rippling outward from the content. Static (no rings) when Reduce Motion is on. */
-export function PulseRings({ children, size, loop = true, delay = 0 }: PulseRingsProps) {
+export function PulseRings({ children, size, loop = true, delay = 0, active = true }: PulseRingsProps) {
   const reduceMotion = useReducedMotion();
   return (
     <View style={[styles.wrap, { width: size, height: size }]}>
-      {reduceMotion
+      {reduceMotion || !active
         ? null
         : Array.from({ length: RING_COUNT }, (_, i) => (
             <Ring key={i} size={size} loop={loop} delay={delay + (i * DURATION) / RING_COUNT} />

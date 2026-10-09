@@ -6,6 +6,7 @@ Self-improvement quests plus a personal AI companion. Private, on-device, and of
 - Phased plan and current status: [`docs/plans/004-buddy-level-up-phases.md`](../../docs/plans/004-buddy-level-up-phases.md)
 - Stack decision: [`docs/decisions/004-buddy-stack-expo-supabase.md`](../../docs/decisions/004-buddy-stack-expo-supabase.md)
 - Login decision: [`docs/decisions/005-google-login-before-onboarding.md`](../../docs/decisions/005-google-login-before-onboarding.md)
+- Voice dictation decision: [`docs/decisions/009-on-device-voice-dictation.md`](../../docs/decisions/009-on-device-voice-dictation.md)
 
 **Current phase: 1 (UI shell).** Every screen is clickable, using synthetic in-memory preview data that resets on restart.
 
@@ -16,7 +17,13 @@ npm install
 npx expo start
 ```
 
-Scan the QR code with Expo Go (Android or iOS). Phases 1–4 run in Expo Go; Phase 5 (on-device model) needs a development build (`npx expo run:android`).
+Scan the QR code with Expo Go (Android or iOS). Most of the app runs in Expo Go. **Voice input in Notes** (ADR-009) and Phase 5 (on-device model) need a development build:
+
+```bash
+npx expo run:android   # generates android/ (git-ignored), builds, and installs on a connected phone
+```
+
+Voice dictation runs on the device only: Android 13+ with the English speech pack installed (the app offers the download), or iOS 17+.
 
 ## Scripts
 

@@ -82,6 +82,20 @@ The brief's section 15 has been re-sequenced so the UI is visible first and Supa
 
 **Still Phase 2:** deterministic scoring from these answers into the Player Profile, a resume-at-page indicator, and SQLite for the remaining data.
 
+## Voice input in Notes (ADR-009) — built
+
+- Mic in the Notes tab add row (`NoteList` `voice` prop). Tap to start and stop, or hold to talk. Text streams into the draft and is never auto-saved.
+- `src/domain/voice-input.ts` holds the pure state machine, transcript merge and truncation. `src/domain/speech.ts` holds the port and error mapping. 23 unit tests.
+- `src/lib/speech-recognizer.ts` is the `expo-speech-recognition` adapter, **on-device only** (no cloud fallback, no audio saved). `src/lib/use-voice-input.ts` handles the 60 s cap and stops on background or blur.
+- `src/components/mic-button.tsx`; `PulseRings` gained an `active` prop.
+
+**Stubbed / not done:** Today's add row has no mic yet (one prop). No Whisper fallback. English only.
+
+**Limitations:**
+- **This is the first Buddy feature that needs a development build** (`npx expo run:android`). In Expo Go the mic shows "needs the full app build".
+- Needs Android 13+ with the English on-device pack (the app can trigger the download, which needs internet once), or iOS 17+.
+- Not yet verified on a physical device in this change. See ADR-009 for the manual checklist.
+
 ## Risks and open questions
 
 - On-device model quality and speed on the demo phone (brief open question 3); mitigated by Lite mode and the curated library.
