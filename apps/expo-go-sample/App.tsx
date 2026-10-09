@@ -23,7 +23,7 @@ const colors = {
 };
 
 const defaultModelPath = Platform.OS === 'android'
-  ? 'file:///data/user/0/com.anonymous.pocketops/files/Qwen3-1.7B-Q8_0.gguf'
+  ? 'file:///sdcard/Android/data/com.anonymous.pocketops/files/models/Qwen3-1.7B-Q8_0.gguf'
   : '';
 
 export default function App() {
