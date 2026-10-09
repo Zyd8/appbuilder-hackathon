@@ -10,6 +10,10 @@ dependencies {
   implementation 'com.google.ai.edge.litertlm:litertlm-android:0.16.1'
 }
 
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+  kotlinOptions.freeCompilerArgs += ['-Xskip-metadata-version-check']
+}
+
 android {
   namespace "expo.modules.pocketopslitertlm"
   defaultConfig {
