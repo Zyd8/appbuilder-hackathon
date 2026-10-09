@@ -1,6 +1,6 @@
 # ADR-007: Notes Replace Tasks
 
-- Status: accepted
+- Status: accepted (the `due` field is replaced by a scheduled `date` in [ADR-008](008-notes-local-first-cloud-backup.md), which also makes notes persistent and backed up)
 - Date: 2026-10-09
 - Scope: `apps/buddy`
 - Changes: the overview's "Notes, Tasks, and Reminders" (section 3.7) and the separate Tasks list in plan 004

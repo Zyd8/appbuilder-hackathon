@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import Animated, {
@@ -12,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { LIFE_AREA_ICONS } from '@/data/life-areas';
+import { shortDateLabel } from '@/domain/dates';
 import { NOTE_MAX, sortNotes } from '@/domain/notes';
 import type { Note } from '@/domain/types';
 import { t } from '@/i18n';
@@ -20,29 +22,44 @@ import { areaColors, radius, spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 
 import { AppText } from './app-text';
+import { Calendar } from './calendar';
 
 type NoteListProps = {
   notes: Note[];
-  /** ISO date; a due date equal to this is not repeated on the row. */
+  /** Today's local ISO date; a note scheduled for this day doesn't repeat it on the row. */
   today: string;
   emptyText: string;
   addPlaceholder: string;
-  onAdd: (body: string) => void;
+  onAdd: (body: string, date?: string) => void;
   /** Long-form capture (Notes tab): Return adds a line break, the send button saves. */
   multiline?: boolean;
+  /** Show a calendar button in the add row to schedule the new note. */
+  datePicker?: boolean;
 };
 
 /** Checkable notes in one card: an add row on top, open notes next, finished notes sink to the bottom. */
-export function NoteList({ notes, today, emptyText, addPlaceholder, onAdd, multiline = false }: NoteListProps) {
+export function NoteList({
+  notes,
+  today,
+  emptyText,
+  addPlaceholder,
+  onAdd,
+  multiline = false,
+  datePicker = false,
+}: NoteListProps) {
   const { colors } = useTheme();
   const reduceMotion = useReducedMotion();
   const [draft, setDraft] = useState('');
+  const [draftDate, setDraftDate] = useState<string>();
+  const [picking, setPicking] = useState(false);
   const sorted = sortNotes(notes);
   const layout = reduceMotion ? undefined : LinearTransition.duration(250);
 
   const add = () => {
-    onAdd(draft);
+    onAdd(draft, draftDate);
     setDraft('');
+    setDraftDate(undefined);
+    setPicking(false);
   };
 
   return (
@@ -62,17 +79,59 @@ export function NoteList({ notes, today, emptyText, addPlaceholder, onAdd, multi
           accessibilityLabel={addPlaceholder}
           style={[styles.input, { color: colors.text }]}
         />
+        {datePicker ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('notes.pickDate')}
+            accessibilityState={{ expanded: picking }}
+            onPress={() => setPicking((open) => !open)}
+            hitSlop={8}
+            style={[styles.iconButton, { backgroundColor: picking || draftDate ? colors.surfaceAlt : 'transparent' }]}>
+            <Ionicons name={draftDate ? 'calendar' : 'calendar-outline'} size={18} color={colors.primary} />
+          </Pressable>
+        ) : null}
         {draft.trim() ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('notes.add')}
             onPress={add}
             hitSlop={8}
-            style={[styles.addButton, { backgroundColor: colors.primary }]}>
+            style={[styles.iconButton, { backgroundColor: colors.primary }]}>
             <Ionicons name="arrow-up" size={16} color={colors.onPrimary} />
           </Pressable>
         ) : null}
       </View>
+
+      {draftDate ? (
+        <View style={styles.chipRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${t('notes.scheduled', { date: shortDateLabel(draftDate) })}. ${t('notes.clearDate')}`}
+            onPress={() => setDraftDate(undefined)}
+            hitSlop={8}
+            style={[styles.chip, { backgroundColor: colors.surfaceAlt, borderColor: colors.primary }]}>
+            <Ionicons name="calendar" size={13} color={colors.primary} />
+            <AppText variant="caption" color="primary">
+              {shortDateLabel(draftDate)}
+            </AppText>
+            <Ionicons name="close" size={13} color={colors.primary} />
+          </Pressable>
+        </View>
+      ) : null}
+
+      {picking ? (
+        <Animated.View entering={FadeIn.duration(reduceMotion ? 150 : 250)} style={styles.picker}>
+          <Calendar
+            framed={false}
+            today={today}
+            selected={draftDate}
+            onSelect={(iso) => {
+              setDraftDate(iso);
+              setPicking(false);
+            }}
+          />
+        </Animated.View>
+      ) : null}
 
       {notes.length === 0 ? (
         <AppText color="textMuted" style={[styles.empty, styles.divider, { borderColor: colors.border }]}>
@@ -110,50 +169,67 @@ function NoteRow({ note, today }: { note: Note; today: string }) {
 
   const checkStyle = useAnimatedStyle(() => ({ transform: [{ scale: pop.get() }] }));
   const high = note.priority === 'high' && !note.done;
-  const dueLabel =
-    note.due && note.due !== today
-      ? t('notes.due', { date: new Date(`${note.due}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) })
-      : undefined;
+  const dateLabel = note.date && note.date !== today ? shortDateLabel(note.date) : undefined;
 
   return (
-    <Pressable
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: note.done }}
-      accessibilityLabel={[note.body, high ? t('notes.priorityHigh') : undefined, dueLabel].filter(Boolean).join(', ')}
-      onPress={() => toggleNote(note.id)}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-      <Animated.View
-        style={[
-          styles.check,
-          note.done
-            ? { backgroundColor: colors.success, borderColor: colors.success }
-            : { borderColor: high ? colors.danger : colors.primary },
-          checkStyle,
-        ]}>
-        {note.done ? <Ionicons name="checkmark" size={16} color={colors.onPrimary} /> : null}
-      </Animated.View>
+    <View style={styles.row}>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: note.done }}
+        accessibilityLabel={note.body}
+        onPress={() => toggleNote(note.id)}
+        hitSlop={9}
+        style={({ pressed }) => pressed && styles.pressed}>
+        <Animated.View
+          style={[
+            styles.check,
+            note.done
+              ? { backgroundColor: colors.success, borderColor: colors.success }
+              : { borderColor: high ? colors.danger : colors.primary },
+            checkStyle,
+          ]}>
+          {note.done ? <Ionicons name="checkmark" size={16} color={colors.onPrimary} /> : null}
+        </Animated.View>
+      </Pressable>
 
-      <View style={styles.body}>
-        <AppText numberOfLines={3} color={note.done ? 'textMuted' : 'text'} style={note.done && styles.done}>
-          {note.body}
-        </AppText>
-        {dueLabel ? (
-          <AppText variant="caption" color="textMuted">
-            {dueLabel}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={[
+          t('notes.edit'),
+          note.body,
+          high ? t('notes.priorityHigh') : undefined,
+          dateLabel ? t('notes.scheduled', { date: dateLabel }) : undefined,
+        ]
+          .filter(Boolean)
+          .join(', ')}
+        accessibilityHint={t('notes.editHint')}
+        onPress={() => router.push({ pathname: '/note/[id]', params: { id: note.id } })}
+        style={({ pressed }) => [styles.bodyPress, pressed && styles.pressed]}>
+        <View style={styles.body}>
+          <AppText numberOfLines={3} color={note.done ? 'textMuted' : 'text'} style={note.done && styles.done}>
+            {note.body}
           </AppText>
-        ) : null}
-      </View>
-
-      {high ? (
-        <View style={[styles.high, { borderColor: colors.danger }]}>
-          <Ionicons name="flag" size={11} color={colors.danger} />
-          <AppText variant="caption" color="danger">
-            {t('notes.high')}
-          </AppText>
+          {dateLabel ? (
+            <View style={styles.dateRow}>
+              <Ionicons name="calendar-outline" size={13} color={colors.textMuted} />
+              <AppText variant="caption" color="textMuted">
+                {dateLabel}
+              </AppText>
+            </View>
+          ) : null}
         </View>
-      ) : null}
-      {note.area ? <Ionicons name={LIFE_AREA_ICONS[note.area]} size={16} color={areaColors[note.area]} /> : null}
-    </Pressable>
+
+        {high ? (
+          <View style={[styles.high, { borderColor: colors.danger }]}>
+            <Ionicons name="flag" size={11} color={colors.danger} />
+            <AppText variant="caption" color="danger">
+              {t('notes.high')}
+            </AppText>
+          </View>
+        ) : null}
+        {note.area ? <Ionicons name={LIFE_AREA_ICONS[note.area]} size={16} color={areaColors[note.area]} /> : null}
+      </Pressable>
+    </View>
   );
 }
 
@@ -161,7 +237,8 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.lg, borderWidth: 1, paddingHorizontal: spacing.lg },
   empty: { paddingVertical: spacing.md },
   divider: { borderTopWidth: StyleSheet.hairlineWidth },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 52, paddingVertical: spacing.sm },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 52 },
+  bodyPress: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm, minHeight: 52 },
   pressed: { opacity: 0.8 },
   check: {
     width: 26,
@@ -172,6 +249,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   body: { flex: 1, gap: 2 },
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   done: { textDecorationLine: 'line-through' },
   high: {
     flexDirection: 'row',
@@ -184,5 +262,16 @@ const styles = StyleSheet.create({
   },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 52 },
   input: { flex: 1, fontSize: 16, paddingVertical: spacing.sm, maxHeight: 140 },
-  addButton: { width: 28, height: 28, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  iconButton: { width: 28, height: 28, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  chipRow: { flexDirection: 'row', paddingBottom: spacing.sm },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  picker: { paddingBottom: spacing.md },
 });

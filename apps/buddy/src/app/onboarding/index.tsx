@@ -66,6 +66,8 @@ export default function Landing() {
         setAccount(result.profile);
         // Bring back answers saved on another phone before deciding where to go (ADR-006).
         await restoreAssessment();
+        // Notes saved on another phone come back in the background (ADR-008).
+        usePreviewStore.getState().syncNotes();
         if (!result.synced) showToast(t('login.syncPending'));
         setStatus('idle');
         if (usePreviewStore.getState().onboarded) router.replace('/today');
