@@ -30,7 +30,7 @@ describe('Buddy model selection', () => {
 
   it('never silently substitutes a different model for an unknown id', () => {
     // @ts-expect-error unknown ids are handled defensively at runtime
-    expect(buddyModel('gemma3n-e2b').id).toBe(DEFAULT_BUDDY_MODEL);
+    expect(() => buddyModel('gemma3n-e2b')).toThrow('Unknown model ID');
   });
 
   it('gives every model a distinct on-device artifact path', () => {
@@ -41,10 +41,10 @@ describe('Buddy model selection', () => {
 
   it('points each model at its own GGUF download and projector, under the app package', () => {
     for (const model of Object.values(BUDDY_MODELS)) {
-      expect(model.url).toMatch(/^https:\/\/huggingface\.co\/.+\/gemma-4-E[24]B.+\/resolve\/main\/.+\.gguf$/);
-      expect(model.mmprojUrl).toMatch(/\/resolve\/main\/mmproj-F16\.gguf$/);
-      expect(model.path).toContain('com.appbuilder.buddylevelup');
-      expect(model.mmprojPath).toContain('com.appbuilder.buddylevelup');
+      expect(model.url).toMatch(/^https:\/\/huggingface\.co\/.+\/gemma-4-E[24]B.+\/resolve\/[a-f0-9]{40}\/.+\.gguf$/);
+      expect(model.mmprojUrl).toMatch(/\/resolve\/[a-f0-9]{40}\/mmproj-F16\.gguf$/);
+      expect(model.path).toContain('/models/');
+      expect(model.mmprojPath).toContain('/models/');
       expect(model.downloadGb).toBeGreaterThan(0);
     }
   });
@@ -57,10 +57,10 @@ describe('Buddy model selection', () => {
 describe('buildBuddyPrompt', () => {
   it('includes local context and the latest user turn', () => {
     const prompt = buildBuddyPrompt([{ role: 'user', text: 'I feel stuck' }], ['Player: Zyd', "Today's quests: Walk"]);
-    expect(prompt).toContain('Local context:');
+    expect(prompt).toContain('untrusted-data');
     expect(prompt).toContain('Player: Zyd');
-    expect(prompt).toContain('User: I feel stuck');
-    expect(prompt.trimEnd().endsWith('Buddy:')).toBe(true);
+    expect(prompt).toContain('I feel stuck');
+    expect(prompt.trimEnd().endsWith('Buddy answer:')).toBe(true);
   });
 
   it('inlines extracted text and labels unsupported attachments', () => {
