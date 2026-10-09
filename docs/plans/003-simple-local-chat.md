@@ -19,9 +19,9 @@ Recommended native path:
 
 - React Native shared chat UI.
 - `llama.rn` / `llama.cpp` native binding for Android and iOS.
-- Start with a small quantized Qwen3 0.6B GGUF model.
-- Test Qwen3 1.7B if memory and latency allow.
-- Keep Qwen3.5-0.8B as a newer experimental candidate until its mobile GGUF path is verified.
+- Start with Qwen3 1.7B as the primary target.
+- Keep Qwen3 0.6B as the low-memory fallback.
+- Treat Qwen3.5-0.8B as an experimental newer candidate until its mobile GGUF path is verified.
 - Install or bundle the model before airplane-mode testing.
 
 The acceptance test is native inference on Android and iOS with the network disabled after model installation. No auth, cloud API, or laptop host is part of the primary flow.

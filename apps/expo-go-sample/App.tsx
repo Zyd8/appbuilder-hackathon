@@ -13,8 +13,9 @@ import {
 import { buildOfflineAnswer, searchGuides, SearchHit } from './src/retrieval';
 import { checklistItems, guides, QueueItem, seedQuestion } from './src/fixtures';
 import { ChatMessage, loadState, resetState, saveState } from './src/storage';
+import { generateWithQwen } from './src/nativeInference';
 
-type Mode = 'OFFLINE' | 'FIXTURE' | 'LAN';
+type Mode = 'OFFLINE' | 'FIXTURE' | 'LAN' | 'NATIVE';
 type Tab = 'HOME' | 'ASK' | 'CHECKLIST' | 'ACTIVITY' | 'SETTINGS';
 
 const colors = {
@@ -44,13 +45,14 @@ export default function App() {
   const [checklist, setChecklist] = useState<boolean[]>(emptyChecklist);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [hostUrl, setHostUrl] = useState('http://192.168.1.10:8787');
+  const [modelPath, setModelPath] = useState('');
   const [hostStatus, setHostStatus] = useState('Not tested');
   const [loading, setLoading] = useState(true);
   const [banner, setBanner] = useState('');
 
   const pendingCount = queue.filter((item) => item.state === 'pending').length;
   const activeGuide = guides[0];
-  const modeLabel = mode === 'OFFLINE' ? 'Offline retrieval' : mode === 'FIXTURE' ? 'Fixture response' : 'LAN local model';
+  const modeLabel = mode === 'OFFLINE' ? 'Offline retrieval' : mode === 'FIXTURE' ? 'Fixture response' : mode === 'LAN' ? 'LAN local model' : 'Native Qwen3 1.7B';
 
   useEffect(() => {
     loadState().then((state) => {
@@ -84,6 +86,18 @@ export default function App() {
     const results = searchGuides(guides, question);
     setHits(results);
     setBanner('');
+    if (mode === 'NATIVE') {
+      try {
+        const nativeResult = await generateWithQwen(modelPath, prompt, results);
+        setAnswer(nativeResult.text);
+        const withAnswer = [...nextMessages, { id: `assistant-${Date.now()}`, role: 'assistant' as const, text: nativeResult.text, mode: nativeResult.model }];
+        setMessages(withAnswer);
+        await persist({ messages: withAnswer });
+        return;
+      } catch (error) {
+        setBanner(error instanceof Error ? error.message : 'Native Qwen inference is unavailable. Falling back to local retrieval.');
+      }
+    }
     if (mode === 'LAN') {
       try {
         const response = await fetch(`${hostUrl.replace(/\/$/, '')}/v1/chat`, {
@@ -262,7 +276,8 @@ export default function App() {
         {tab === 'SETTINGS' && <>
           <View style={styles.screenHeading}><Text style={styles.screenTitle}>Settings</Text><Text style={styles.statusTag}>Expo Go</Text></View>
           <Text style={styles.sectionLabel}>ASSISTANCE MODE</Text>
-          {(['OFFLINE', 'FIXTURE', 'LAN'] as Mode[]).map((option) => <Pressable key={option} style={[styles.modeRow, mode === option && styles.modeRowActive]} onPress={() => setMode(option)}><View style={[styles.radio, mode === option && styles.radioActive]} /> <View><Text style={styles.modeTitle}>{option === 'OFFLINE' ? 'Offline retrieval' : option === 'FIXTURE' ? 'Fixture response' : 'LAN local model'}</Text><Text style={styles.modeDescription}>{option === 'OFFLINE' ? 'No network calls. Source passages only.' : option === 'FIXTURE' ? 'Deterministic synthetic responses for demos.' : 'Optional host on the same Wi-Fi network.'}</Text></View></Pressable>)}
+          {(['OFFLINE', 'FIXTURE', 'NATIVE', 'LAN'] as Mode[]).map((option) => <Pressable key={option} style={[styles.modeRow, mode === option && styles.modeRowActive]} onPress={() => setMode(option)}><View style={[styles.radio, mode === option && styles.radioActive]} /> <View><Text style={styles.modeTitle}>{option === 'OFFLINE' ? 'Offline retrieval' : option === 'FIXTURE' ? 'Fixture response' : option === 'NATIVE' ? 'Native Qwen3 1.7B' : 'LAN local model'}</Text><Text style={styles.modeDescription}>{option === 'OFFLINE' ? 'No network calls. Source passages only.' : option === 'FIXTURE' ? 'Deterministic synthetic responses for demos.' : option === 'NATIVE' ? 'Runs inside the Android/iOS native build.' : 'Optional host on the same Wi-Fi network.'}</Text></View></Pressable>)}
+          {mode === 'NATIVE' ? <><Text style={styles.sectionLabel}>LOCAL MODEL FILE</Text><TextInput value={modelPath} onChangeText={setModelPath} autoCapitalize="none" autoCorrect={false} style={styles.input} placeholder="file:///path/to/Qwen3-1.7B-Q8_0.gguf" placeholderTextColor={colors.muted} /><Text style={styles.muted}>Expo Go cannot load this native runtime. Use a development build after placing the GGUF model on the device.</Text></> : null}
           <Text style={styles.sectionLabel}>LOCAL HOST URL</Text>
           <TextInput value={hostUrl} onChangeText={setHostUrl} autoCapitalize="none" autoCorrect={false} style={styles.input} placeholderTextColor={colors.muted} />
           <Pressable style={styles.secondaryButton} onPress={testHost}><Text style={styles.secondaryButtonText}>Test host · {hostStatus}</Text></Pressable>

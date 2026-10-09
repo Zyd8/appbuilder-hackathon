@@ -12,11 +12,11 @@ The defining requirement is that the LLM itself runs inside the mobile app. A LA
 
 Keep the React Native UI and chat application layer shared, but deliver the inference demo as an Expo development build/native app for both Android and iOS.
 
-The first runtime to evaluate is `llama.rn`, a React Native binding of `llama.cpp` with Android and iOS support. The first model candidate is a small quantized Qwen3 GGUF model:
+The first runtime to evaluate is `llama.rn`, a React Native binding of `llama.cpp` with Android and iOS support. The selected model is a small quantized Qwen3 GGUF model:
 
-- Start with Qwen3 0.6B for the lowest device risk.
-- Test Qwen3 1.7B as the quality upgrade if memory and latency are acceptable.
-- Treat Qwen3.5-0.8B as an experimental newer candidate until its GGUF/mobile runtime path is verified.
+- Qwen3 1.7B is the primary target.
+- Qwen3 0.6B is the low-memory fallback.
+- Qwen3.5-0.8B remains an experimental newer candidate until its GGUF/mobile runtime path is verified.
 
 The model must be downloaded or bundled before the offline test. Once installed, chat inference must run with network disabled.
 
