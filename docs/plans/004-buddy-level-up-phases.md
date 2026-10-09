@@ -61,7 +61,7 @@ The brief's section 15 has been re-sequenced so the UI is visible first and Supa
 
 ## Google login before onboarding (ADR-005) — built
 
-- Welcome → **Let's begin** → `/onboarding/login` (required, no skip) → questions. Already signed-in users skip straight to questions.
+- Animated splash (`/`) → landing page (`/onboarding`) with **Continue with Google** (required, no skip) → questions → analysis. Already signed-in users see **Continue as <name>** instead. (Originally a separate welcome screen and `/onboarding/login`; merged during the Angat rebrand on 2026-10-09.)
 - `src/lib/auth.ts`: Supabase OAuth in an in-app browser (PKCE, `expo-web-browser`), a reachability check for a clear offline message, and a retry of pending profile upserts on launch.
 - `src/domain/account.ts`: profile mapping, redirect parsing, local-first save (unit-tested).
 - `src/lib/account-storage.ts`: cached profile in on-device `localStorage`.

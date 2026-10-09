@@ -12,7 +12,7 @@ type BuddyMascotProps = {
 /** Placeholder Buddy mascot: an original round blob with simple expressions. Final art TBD. */
 export function BuddyMascot({ mood = 'happy', size = 64 }: BuddyMascotProps) {
   const { colors } = useTheme();
-  const ink = '#1B1630';
+  const ink = '#0A1A4A';
 
   return (
     <Svg width={size} height={size} viewBox="0 0 100 100" accessibilityLabel={`Buddy looks ${mood}`}>
@@ -53,8 +53,8 @@ export function BuddyMascot({ mood = 'happy', size = 64 }: BuddyMascotProps) {
         />
       )}
       {/* cheeks */}
-      <Circle cx="30" cy="66" r="4" fill="#F7A1C4" opacity={0.7} />
-      <Circle cx="70" cy="66" r="4" fill="#F7A1C4" opacity={0.7} />
+      <Circle cx="30" cy="66" r="4" fill="#9CC8FF" opacity={0.7} />
+      <Circle cx="70" cy="66" r="4" fill="#9CC8FF" opacity={0.7} />
     </Svg>
   );
 }
