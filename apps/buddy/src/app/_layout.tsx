@@ -63,6 +63,7 @@ export default function RootLayout() {
             options={{ presentation: 'modal', headerShown: true, title: t('settings.title') }}
           />
           <Stack.Screen name="check-in" options={{ ...halfSheet, title: t('checkin.title') }} />
+          <Stack.Screen name="stats" options={{ ...halfSheet, title: t('stats.breakdown') }} />
           <Stack.Screen name="quest/[id]" options={{ ...halfSheet, title: t('quests.details') }} />
         </Stack>
         <ToastHost />
