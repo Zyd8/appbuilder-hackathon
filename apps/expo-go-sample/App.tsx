@@ -99,7 +99,6 @@ export default function App() {
           contentContainerStyle={styles.messages}
           keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-          ListFooterComponent={busy ? <View style={styles.typing}><ActivityIndicator color={colors.green} size="small" /><Text style={styles.typingText}>Qwen is typing…</Text></View> : null}
           ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>Talk to Qwen offline.</Text><Text style={styles.emptyText}>The model runs inside this app. No account, cloud API, or laptop host.</Text><Text style={styles.example}>Try: “Why is the generator showing E17?”</Text></View>}
           renderItem={({ item }) => <View style={[styles.bubble, item.role === 'user' ? styles.userBubble : styles.botBubble]}><Text style={item.role === 'user' ? styles.userText : styles.botText}>{item.text}</Text>{item.mode ? <Text style={styles.modeText}>{item.mode}</Text> : null}</View>}
         />
