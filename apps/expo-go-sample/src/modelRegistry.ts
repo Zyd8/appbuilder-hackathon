@@ -22,17 +22,17 @@ export const MODEL_PROFILES: LocalModelProfile[] = [
     id: 'gemma3n-e2b',
     label: 'Gemma 3n E2B',
     runtime: 'LiteRT-LM',
-    available: false,
-    description: 'Mobile-oriented model; requires a separate LiteRT-LM native adapter.',
-    modelPath: '',
+    available: true,
+    description: 'Mobile-oriented LiteRT-LM model; requires the native adapter and a local .litertlm file.',
+    modelPath: 'file:///sdcard/Android/data/com.anonymous.pocketops/files/models/Gemma3n-E2B-it.litertlm',
   },
   {
     id: 'gemma3n-e4b',
     label: 'Gemma 3n E4B',
     runtime: 'LiteRT-LM',
-    available: false,
-    description: 'Higher-quality Gemma 3n option; requires a separate LiteRT-LM native adapter.',
-    modelPath: '',
+    available: true,
+    description: 'Higher-quality LiteRT-LM model; requires the native adapter and a local .litertlm file.',
+    modelPath: 'file:///sdcard/Android/data/com.anonymous.pocketops/files/models/Gemma3n-E4B-it.litertlm',
   },
 ];
 
