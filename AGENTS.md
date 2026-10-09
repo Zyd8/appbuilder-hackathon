@@ -12,6 +12,7 @@ The repository is intentionally at the planning stage. Do not assume a framework
 - `docs/` — durable project documentation.
 - `docs/plans/` — product, architecture, implementation, and demo plans.
 - `docs/decisions/` — architecture decision records (ADRs).
+- `docs/design/` — the Angat design system ([`angat-design-system.md`](docs/design/angat-design-system.md)). Read it before any UI change.
 - `AGENTS.md` — instructions for AI agents and contributors.
 
 When implementation begins, use the chosen stack's conventional folders for source and tests. Keep domain logic separate from UI, storage, model adapters, and network synchronization.

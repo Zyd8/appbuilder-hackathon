@@ -23,6 +23,7 @@ const STEP_MS = 650;
 
 /** Phase 1 shows the synthetic preview profile. Phase 2 computes it from the answers (deterministic scoring). */
 export default function Analysis() {
+  const { colors } = useTheme();
   const profile = usePreviewStore((s) => s.profile);
   const finishOnboarding = usePreviewStore((s) => s.finishOnboarding);
   const [done, setDone] = useState(0);
@@ -51,7 +52,7 @@ export default function Analysis() {
               {t('analysis.disclaimer')}
             </AppText>
           </View>
-          <View style={styles.halo}>
+          <View style={[styles.halo, { backgroundColor: colors.surface }]}>
             <BuddyMascot mood="celebrating" size={64} />
           </View>
         </GradientPanel>
@@ -131,7 +132,6 @@ const styles = StyleSheet.create({
     width: 84,
     height: 84,
     borderRadius: 42,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },

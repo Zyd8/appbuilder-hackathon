@@ -378,7 +378,7 @@ function RatingMeter({
                 n === SCALE.length && styles.segmentLast,
                 { backgroundColor: lit ? color : colors.surfaceAlt, opacity: pressed ? 0.75 : 1 },
               ]}>
-              <AppText variant="caption" style={{ color: lit ? '#FFFFFF' : colors.textMuted }}>
+              <AppText variant="caption" style={{ color: lit ? colors.onPrimary : colors.textMuted }}>
                 {n}
               </AppText>
             </Pressable>
