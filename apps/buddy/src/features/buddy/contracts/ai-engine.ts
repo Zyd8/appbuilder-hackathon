@@ -18,6 +18,11 @@ export type AIEngineOutput =
 export interface AIEngineRequest {
   prompt: string;
   maxOutputTokens: number;
+  tools?: readonly {
+    type: 'function';
+    function: { name: string; description?: string; parameters: Record<string, unknown> };
+  }[];
+  toolChoice?: 'auto' | 'none' | 'required';
   /** App-resolved image input only. Never include a quest proof photo. */
   images?: readonly { uri: string; mimeType: string }[];
   signal?: AbortSignal;
