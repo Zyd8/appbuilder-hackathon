@@ -32,9 +32,40 @@ Build for graceful degradation:
 5. Make retries, conflicts, stale data, and queued actions visible.
 6. Never claim an external action completed until it has been verified after synchronization.
 
+## Current direction
+
+PocketOps is the recommended demo: an offline field guide and incident notebook with local search, persisted checklists, notes, and an optional LAN-local model adapter.
+
+The Expo Go sample is in `apps/expo-go-sample/`. It works without a cloud account and uses synthetic data. The optional deterministic LAN host is in `services/local-host/`.
+
+## Run the Expo Go sample
+
+```bash
+cd apps/expo-go-sample
+npm install
+npx expo start --lan
+```
+
+Scan the displayed `exp://` URL in Expo Go. After the bundle loads, enable airplane mode and verify local guides, search, notes, and checklist progress. Expo Go may need Metro for a fresh load; the sample does not claim standalone cold launch.
+
+## Run the optional local host
+
+```bash
+cd services/local-host
+node src/server.mjs
+```
+
+Use the host machine's LAN IP in the app Settings screen. The current host is deterministic and cloud-free; it is a verified demo bridge, not yet a real Ollama integration.
+
+## Documentation
+
+- Product and implementation plan: `docs/plans/002-pocketops-mvp.md`
+- Expo Go/native boundary: `docs/decisions/001-expo-go-local-ai-boundary.md`
+- Contributor and agent rules: `AGENTS.md`
+
 ## Status
 
-Early hackathon setup. Product direction and implementation are to be decided.
+Expo Go demo scaffolded and verified through TypeScript, Expo Android export, local-host health/answer/sync checks, and duplicate-event behavior. Physical-device QR scan still needs to be exercised on the target Android device.
 
 ## License
 
