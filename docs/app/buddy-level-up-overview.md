@@ -164,22 +164,22 @@ Once a week (user-triggered or a gentle prompt), the on-device AI summarizes:
 - 1–2 suggested adjustments for next week, which the user accepts or declines.
 - Optional re-run of a short mini-assessment every 4 weeks to update the profile.
 
-### 3.7 Notes, Tasks, and Reminders (Companion Layer)
-- Quick-capture notes with "Organize with Buddy": the AI turns a note into proposed tasks with dates, shown as a preview the user confirms.
-- Tasks have due dates, reminders, priority, and subtasks.
-- **Real tasks and quests share one Today list**, so the user sees one plan, not two apps. A task can optionally be tagged with a life area to earn small XP.
+### 3.7 Notes and Reminders (Companion Layer)
+- **Notes replace tasks (ADR-007):** one list, and any note can be checked off. Notes can have a due date, priority, and life area.
+- Quick-capture notes with "Organize with Buddy": the AI proposes a due date, priority, and area for a note, shown as a preview the user confirms.
+- **Notes due today and quests share the Today screen**, so the user sees one plan, not two apps. A note can optionally be tagged with a life area to earn small XP.
 - Local reminders (work offline), snooze, quiet hours, notification categories.
 
 ### 3.8 Nudges
 - Short, optional suggestions on the Today screen, in widgets, and (rarely) as notifications.
-- **Rules engine first, LLM for phrasing only.** Examples: an unfinished quest at the user's usual time, a task due today with no reminder, a low-energy day, a streak at risk.
+- **Rules engine first, LLM for phrasing only.** Examples: an unfinished quest at the user's usual time, a note due today with no reminder, a low-energy day, a streak at risk.
 - **Hard cap: 3 nudge notifications per day**, a minimum of 2 hours apart, none in quiet hours, user can set to 0.
 - "Not useful" / "Less like this" feedback, plus "Why am I seeing this?".
 
 ### 3.9 Ask Buddy (Companion Chat)
 - Chat with the on-device AI about notes, quests, planning, or a stuck feeling.
 - Uses locally retrieved context (profile, recent notes, active quests) and shows what it used.
-- Can propose actions as tappable cards: create a task, set a reminder, add a custom quest, adjust a goal. Nothing executes without confirmation.
+- Can propose actions as tappable cards: create a note, set a reminder, add a custom quest, adjust a goal. Nothing executes without confirmation.
 - Short, practical, encouraging responses. Does not give medical, legal, or financial advice and says so when asked.
 
 ### 3.10 Share Progress as Story Cards
@@ -195,11 +195,11 @@ Weather, traffic, news, and emergency-preparedness summaries when online, summar
 ## 4. Screens and Navigation
 
 Bottom tabs:
-1. **Today:** greeting, check-in prompt, Daily Quest Board (3 quests), today's tasks, next nudge.
+1. **Today:** greeting, check-in prompt, Daily Quest Board (3 quests), today's notes, next nudge.
 2. **Quests:** daily, weekly, side quests, history, (later) story arcs.
 3. **Player:** status screen with level, XP, stats radar chart, strengths, growth areas, title, achievements.
 4. **Ask Buddy:** chat.
-5. **Notes & Tasks:** capture, tasks, notes, search.
+5. **Notes:** capture, check off, search.
 
 Before the tabs: **Welcome → Sign in with Google → Onboarding questions → Analysis reveal → Today**. The entry route sends anyone who is not signed in, or not yet onboarded, to the welcome screen.
 
@@ -236,7 +236,7 @@ The AI does four jobs. Each has a versioned prompt, a JSON schema, validation, a
 | **Analyze profile** | Onboarding answers | stats, strengths, growth areas, 30-day focus, title | Deterministic scoring from self-ratings + template text |
 | **Generate quests** | Profile, recent quest history, feedback, energy, constraints | list of quests with area, difficulty, time, instruction, why | Pick from a **curated quest library** (see below), filtered and ranked by rules |
 | **Weekly review** | Week's completions and reflections | summary, patterns, suggestions | Template-based stats summary |
-| **Organize note → tasks** | Note text | tasks with dates and priorities | Rule-based date/checklist parser |
+| **Organize note** | Note text | due date, priority, and area for the note | Rule-based date/checklist parser |
 
 **Important design decisions:**
 - **Hybrid quest generation.** Ship a hand-written **curated library of 150+ quest templates** (tagged by area, difficulty, time, energy, tools needed) as the backbone. The LLM personalizes and re-words them and invents new ones within the schema. This keeps quest quality high even on weak devices and guarantees offline use before the model is downloaded.
@@ -262,7 +262,7 @@ All IDs UUID; all tables have `created_at`, `updated_at`; soft-delete where rele
 - `quest_feedback` (id, quest_id, signal: too_easy | too_hard | not_relevant | loved)
 - `checkins` (id, date, mood, energy, focus_text, reflection?)
 - `weekly_reviews` (id, week_start, summary_json)
-- `notes`, `tasks`, `subtasks`, `lists` (as a standard productivity model)
+- `notes` (checkable, with optional due date, priority, and area; ADR-007), `lists`
 - `preferences` (key, value_json): quiet hours, nudge cap, blocked quest types, physical quests on/off, difficulty bias
 - `nudges` (id, type, payload_json, shown_at, acted_at?, feedback?)
 - `chat_threads`, `chat_messages`
