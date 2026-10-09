@@ -16,7 +16,7 @@ describe('memory policy', () => {
   });
 
   it('blocks paths, data URLs, credentials and control characters', () => {
-    for (const text of ['- file:///private/a', '- data:image/png;base64,AA', '- /data/user/0/a', '- api_key: 123', '- password=hello', '- hello\u0000']) {
+    for (const text of ['- file:///private/a', '- data:image/png;base64,AA', '- /data/user/0/a', '- api_key: 123', '- password=hello', '- sk-1234567890abcdef', '- hello\u0000']) {
       expect(() => validateMemory('USER.md', `## Preferences\n${text}`)).toThrow(MemoryValidationError);
     }
   });

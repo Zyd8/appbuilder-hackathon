@@ -47,7 +47,7 @@ export function validateMemory(name: MemoryDocumentName, raw: string): string {
   // Memory is a compact preference store. Paths, data URLs, and credentials have no place in it.
   if (/(?:data:[^\s]+|file:\/\/[^\s]+|(?:^|\s)(?:\/data\/|\/storage\/|[A-Za-z]:\\)[^\s]*)/im.test(text))
     throw new MemoryValidationError('Memory cannot contain file paths or data URLs.');
-  if (/(?:api[_ -]?key|secret|password|bearer\s+[\w.-]+|sk-[A-Za-z0-9]{12,})\s*[:=]/i.test(text))
+  if (/(?:api[_ -]?key|secret|password)\s*[:=]|\bbearer\s+[A-Za-z0-9._-]{12,}|\bsk-[A-Za-z0-9]{12,}/i.test(text))
     throw new MemoryValidationError('Memory cannot contain credentials.');
   return text;
 }
