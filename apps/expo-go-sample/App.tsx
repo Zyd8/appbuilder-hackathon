@@ -86,7 +86,7 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.paper} translucent={false} />
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 0}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
         <View style={styles.header}>
           <View><Text style={styles.eyebrow}>ON-DEVICE CHAT</Text><Text style={styles.title}>PocketOps</Text></View>
           <View style={styles.nativePill}><View style={styles.dot} /><Text style={styles.pillText}>NATIVE</Text></View>
