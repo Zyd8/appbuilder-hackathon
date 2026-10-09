@@ -12,13 +12,15 @@ import { useTheme } from '@/theme/use-theme';
 export default function RootLayout() {
   const { colors, isDark } = useTheme();
   const setAccount = usePreviewStore((s) => s.setAccount);
+  const syncAssessment = usePreviewStore((s) => s.syncAssessment);
 
-  // A profile saved while offline is upserted on the next launch.
+  // A profile or answers saved while offline are upserted on the next launch.
   useEffect(() => {
     retryPendingProfileSync()
       .then((profile) => profile && setAccount(profile))
       .catch(() => {});
-  }, [setAccount]);
+    syncAssessment();
+  }, [setAccount, syncAssessment]);
   const base = isDark ? DarkTheme : DefaultTheme;
   const navTheme = {
     ...base,

@@ -1,6 +1,7 @@
 /**
- * Phase 1 in-memory store. Drives the clickable UI shell with synthetic data.
- * State is lost on restart; Phase 2 moves persistence to SQLite (the local source of truth).
+ * Phase 1 store. Drives the clickable UI shell with synthetic data.
+ * The account (ADR-005) and onboarding answers (ADR-006) persist on the device; everything else
+ * is still in memory and is lost on restart until Phase 2 adds SQLite.
  */
 import { create } from 'zustand';
 
@@ -17,6 +18,14 @@ import {
   todayIso,
 } from '@/data/preview';
 import type { AccountProfile } from '@/domain/account';
+import {
+  answerValues,
+  emptyAssessment,
+  markCompleted,
+  resetAssessment,
+  setAnswer as setAssessmentAnswer,
+  type AssessmentDoc,
+} from '@/domain/assessment';
 import type {
   ChatMessage,
   CheckIn,
@@ -29,6 +38,8 @@ import type {
 import { grantXp, levelFromTotalXp } from '@/domain/xp';
 import { t } from '@/i18n';
 import { loadCachedProfile } from '@/lib/account-storage';
+import { loadAssessment, writeAssessment } from '@/lib/assessment-storage';
+import { restoreAssessment, syncPendingAssessment } from '@/lib/assessment-sync';
 
 export const FREE_REROLLS_PER_DAY = 2;
 
@@ -40,6 +51,8 @@ export interface CompletionResult {
 interface PreviewState {
   /** Signed-in Google account, cached on the device (ADR-005). Required before onboarding. */
   account?: AccountProfile;
+  /** Saved onboarding answers for `account` (ADR-006). `answers` and `onboarded` are derived from it. */
+  assessment?: AssessmentDoc;
   onboarded: boolean;
   answers: Record<string, OnboardingAnswer>;
   profile: PlayerProfile;
@@ -58,6 +71,10 @@ interface PreviewState {
 
   setAccount: (account: AccountProfile) => void;
   clearAccount: () => void;
+  /** Load this account's answers, merging in the cloud copy when reachable (e.g. a new phone). */
+  restoreAssessment: () => Promise<void>;
+  /** Push unsynced answers to Supabase. Fire-and-forget; failures stay pending for the next call. */
+  syncAssessment: () => void;
   setAnswer: (questionId: string, answer: OnboardingAnswer | undefined) => void;
   finishOnboarding: () => void;
   completeQuest: (questId: string, reflection?: string) => CompletionResult;
@@ -90,6 +107,14 @@ function initialState() {
   };
 }
 
+function assessmentState(doc: AssessmentDoc | undefined) {
+  return { assessment: doc, answers: answerValues(doc), onboarded: Boolean(doc?.completedAt) };
+}
+
+const nowIso = () => new Date().toISOString();
+
+const cachedAccount = loadCachedProfile();
+
 let idCounter = 0;
 function localId(prefix: string): string {
   idCounter += 1;
@@ -98,21 +123,50 @@ function localId(prefix: string): string {
 
 export const usePreviewStore = create<PreviewState>()((set, get) => ({
   ...initialState(),
-  account: loadCachedProfile(),
+  account: cachedAccount,
+  ...assessmentState(cachedAccount ? loadAssessment(cachedAccount.id) : undefined),
 
-  setAccount: (account) => set({ account }),
+  setAccount: (account) =>
+    set((s) =>
+      s.account?.id === account.id ? { account } : { account, ...assessmentState(loadAssessment(account.id)) },
+    ),
 
-  clearAccount: () => set({ ...initialState(), account: undefined }),
+  clearAccount: () => set({ ...initialState(), account: undefined, assessment: undefined }),
 
-  setAnswer: (questionId, answer) =>
-    set((s) => {
-      const answers = { ...s.answers };
-      if (answer === undefined) delete answers[questionId];
-      else answers[questionId] = answer;
-      return { answers };
-    }),
+  restoreAssessment: async () => {
+    const userId = get().account?.id;
+    if (!userId) return;
+    const doc = await restoreAssessment(userId);
+    if (get().account?.id === userId) set(assessmentState(doc));
+  },
 
-  finishOnboarding: () => set({ onboarded: true }),
+  syncAssessment: () => {
+    const userId = get().account?.id;
+    if (!userId) return;
+    void syncPendingAssessment(userId).then((doc) => {
+      // Only record which version reached the cloud; never replace newer in-memory edits.
+      set((s) =>
+        doc && s.assessment?.userId === doc.userId ? { assessment: { ...s.assessment, syncedAt: doc.syncedAt } } : {},
+      );
+    });
+  },
+
+  setAnswer: (questionId, answer) => {
+    const { account, assessment } = get();
+    if (!account) return;
+    const doc = setAssessmentAnswer(assessment ?? emptyAssessment(account.id, nowIso()), questionId, answer, nowIso());
+    writeAssessment(doc);
+    set({ assessment: doc, answers: answerValues(doc) });
+  },
+
+  finishOnboarding: () => {
+    const { account, assessment } = get();
+    if (!account) return set({ onboarded: true });
+    const doc = markCompleted(assessment ?? emptyAssessment(account.id, nowIso()), nowIso());
+    writeAssessment(doc);
+    set(assessmentState(doc));
+    get().syncAssessment();
+  },
 
   completeQuest: (questId, reflection) => {
     const s = get();
@@ -203,5 +257,12 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
 
   setAllowPhysical: (allow) => set({ allowPhysical: allow }),
 
-  reset: () => set(initialState()),
+  reset: () => {
+    const { assessment } = get();
+    if (!assessment) return set(initialState());
+    const doc = resetAssessment(assessment, nowIso());
+    writeAssessment(doc);
+    set({ ...initialState(), ...assessmentState(doc) });
+    get().syncAssessment();
+  },
 }));

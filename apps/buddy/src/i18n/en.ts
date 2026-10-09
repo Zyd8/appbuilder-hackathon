@@ -24,14 +24,15 @@ export const en = {
   'onboarding.welcome.title': 'Hi, I’m Buddy.',
   'onboarding.welcome.body':
     'Answer a few quick questions and I’ll build you a personal quest board for growing in ways that go beyond the gym.',
-  'onboarding.welcome.privacy': 'Sign in once with Google. Your answers stay on this device.',
+  'onboarding.welcome.privacy': 'Sign in once with Google. Your answers are saved to your account so Buddy remembers you.',
   'onboarding.welcome.start': 'Let’s begin',
   'onboarding.welcome.time': 'About 2 minutes · 4 quick pages · skip anything.',
   'login.title': 'Let’s save your spot',
   'login.body': 'Sign in with Google so Buddy knows it’s you. Then we’ll start your questions.',
   'login.google': 'Continue with Google',
   'login.loading': 'Waiting for Google…',
-  'login.privacy': 'We save your name, email, and photo to your account. Your answers stay on this device.',
+  'login.privacy':
+    'We save your name, email, photo, and onboarding answers to your account. Notes, quests, and chats stay on this device.',
   'login.cancelled': 'No worries. Tap the button whenever you’re ready.',
   'login.offline': 'Buddy can’t reach the internet. Connect once to sign in, then I work offline.',
   'login.retry': 'Try again',
@@ -150,9 +151,9 @@ export const en = {
   'settings.account.signOut': 'Sign out',
   'settings.privacy': 'Privacy',
   'settings.privacy.body':
-    'Your account holds only your name, email, and photo. Your answers, notes, and reflections stay on this phone.',
+    'Your account holds your name, email, photo, and onboarding answers. Notes, quests, reflections, and chats stay on this phone.',
   'settings.reset': 'Restart onboarding',
-  'settings.reset.hint': 'Clears preview data and shows the welcome flow again.',
+  'settings.reset.hint': 'Clears your onboarding answers (here and in your account) and shows the welcome flow again.',
 
   'phase.comingIn': 'Coming in phase {{phase}}',
 } as const;

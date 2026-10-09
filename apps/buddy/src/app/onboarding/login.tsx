@@ -35,6 +35,7 @@ const MOODS: Record<Status, BuddyMood> = {
 export default function Login() {
   const { colors } = useTheme();
   const setAccount = usePreviewStore((s) => s.setAccount);
+  const restoreAssessment = usePreviewStore((s) => s.restoreAssessment);
   const showToast = useToast((s) => s.show);
   const [status, setStatus] = useState<Status>('idle');
 
@@ -44,9 +45,11 @@ export default function Login() {
     switch (result.status) {
       case 'ok':
         setAccount(result.profile);
+        // Bring back answers saved on another phone before deciding where to go.
+        await restoreAssessment();
         if (!result.synced) showToast(t('login.syncPending'));
         setStatus('idle');
-        router.replace('/onboarding/questions');
+        router.replace(usePreviewStore.getState().onboarded ? '/today' : '/onboarding/questions');
         return;
       case 'not_configured':
         setStatus('error');
