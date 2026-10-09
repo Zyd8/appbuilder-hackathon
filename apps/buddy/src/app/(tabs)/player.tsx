@@ -5,6 +5,7 @@ import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-rea
 
 import { ActivityGrid } from '@/components/activity-grid';
 import { AppText } from '@/components/app-text';
+import { Button } from '@/components/button';
 import { InsightList } from '@/components/insight-list';
 import { PlayerBanner } from '@/components/player-banner';
 import { Screen } from '@/components/screen';
@@ -46,6 +47,8 @@ export default function Player() {
         streakDays={profile.streakDays}
         restTokens={profile.restTokens}
       />
+
+      <Button label={t('share.open')} icon="share-outline" variant="secondary" onPress={() => router.push('/share-progress')} />
 
       <Animated.View entering={rise(1)} style={styles.section}>
         <SectionHeader title={t('player.stats')} />
