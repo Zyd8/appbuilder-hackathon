@@ -106,10 +106,19 @@ export interface CheckIn {
 }
 
 export type OnboardingQuestion =
-  | { id: string; section: string; kind: 'single'; prompt: string; options: QuestionOption[] }
-  | { id: string; section: string; kind: 'multi'; prompt: string; options: QuestionOption[]; max: number }
-  | { id: string; section: string; kind: 'scale'; prompt: string; area: LifeArea }
-  | { id: string; section: string; kind: 'text'; prompt: string; placeholder: string };
+  | { id: string; kind: 'single'; prompt: string; options: QuestionOption[] }
+  | { id: string; kind: 'multi'; prompt: string; options: QuestionOption[]; max: number }
+  | { id: string; kind: 'scale'; prompt: string; area: LifeArea }
+  | { id: string; kind: 'text'; prompt: string; placeholder: string };
+
+export interface OnboardingPage {
+  id: string;
+  title: string;
+  subtitle: string;
+  /** What Buddy says at the top of the page. */
+  buddyLine: string;
+  questions: OnboardingQuestion[];
+}
 
 export interface QuestionOption {
   value: string;
