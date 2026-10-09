@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TAB_BAR_CLEARANCE } from '@/components/glass-tab-bar';
@@ -21,11 +21,17 @@ export function Screen({ children, scroll = true, edges = ['top'] }: ScreenProps
   return (
     <SafeAreaView edges={edges} style={[styles.safe, { backgroundColor: colors.background }]}>
       {scroll ? (
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: spacing.xxl + clearance }]}
-          keyboardShouldPersistTaps="handled">
-          <View style={styles.inner}>{children}</View>
-        </ScrollView>
+        // Keep focused inputs (e.g. a note being typed) above the keyboard. Android is edge-to-edge,
+        // so the window no longer resizes for the keyboard: shrink the scroll area instead, and the
+        // ScrollView keeps the focused input in view. iOS adjusts the insets and scrolls natively.
+        <KeyboardAvoidingView behavior="padding" enabled={Platform.OS === 'android'} style={styles.fill}>
+          <ScrollView
+            contentContainerStyle={[styles.content, { paddingBottom: spacing.xxl + clearance }]}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets>
+            <View style={styles.inner}>{children}</View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       ) : (
         <View style={[styles.fill, { paddingBottom: clearance }]}>{children}</View>
       )}

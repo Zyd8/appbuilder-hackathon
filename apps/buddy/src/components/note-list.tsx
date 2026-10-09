@@ -26,8 +26,10 @@ import { Calendar } from './calendar';
 
 type NoteListProps = {
   notes: Note[];
-  /** Today's local ISO date; a note scheduled for this day doesn't repeat it on the row. */
+  /** Today's local ISO date; a note scheduled for this day doesn't repeat it on the row (unless `showAllDates`). */
   today: string;
+  /** Show the date on every dated note, "Today" included (Notes list, where notes from many days mix). */
+  showAllDates?: boolean;
   emptyText: string;
   addPlaceholder: string;
   onAdd: (body: string, date?: string) => void;
@@ -41,6 +43,7 @@ type NoteListProps = {
 export function NoteList({
   notes,
   today,
+  showAllDates = false,
   emptyText,
   addPlaceholder,
   onAdd,
@@ -145,14 +148,14 @@ export function NoteList({
           layout={layout}
           entering={reduceMotion ? undefined : FadeIn.duration(250)}
           style={[styles.divider, { borderColor: colors.border }]}>
-          <NoteRow note={note} today={today} />
+          <NoteRow note={note} today={today} showAllDates={showAllDates} />
         </Animated.View>
       ))}
     </View>
   );
 }
 
-function NoteRow({ note, today }: { note: Note; today: string }) {
+function NoteRow({ note, today, showAllDates }: { note: Note; today: string; showAllDates: boolean }) {
   const { colors } = useTheme();
   const reduceMotion = useReducedMotion();
   const toggleNote = usePreviewStore((s) => s.toggleNote);
@@ -169,7 +172,13 @@ function NoteRow({ note, today }: { note: Note; today: string }) {
 
   const checkStyle = useAnimatedStyle(() => ({ transform: [{ scale: pop.get() }] }));
   const high = note.priority === 'high' && !note.done;
-  const dateLabel = note.date && note.date !== today ? shortDateLabel(note.date) : undefined;
+  const dateLabel = !note.date
+    ? undefined
+    : note.date !== today
+      ? shortDateLabel(note.date)
+      : showAllDates
+        ? t('calendar.today')
+        : undefined;
 
   return (
     <View style={styles.row}>
