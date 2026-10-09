@@ -27,6 +27,7 @@ export default function OnboardingPages() {
   const scrollRef = useRef<ScrollView>(null);
   const answers = usePreviewStore((s) => s.answers);
   const setAnswer = usePreviewStore((s) => s.setAnswer);
+  const syncAssessment = usePreviewStore((s) => s.syncAssessment);
 
   const page = ONBOARDING_PAGES[pageIndex];
   const total = ONBOARDING_PAGES.length;
@@ -37,7 +38,12 @@ export default function OnboardingPages() {
     setPageIndex(index);
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   };
-  const next = () => (isLast ? router.replace('/onboarding/analysis') : goTo(pageIndex + 1));
+  const next = () => {
+    // Answers are already saved on the device per tap; back them up once per page.
+    syncAssessment();
+    if (isLast) router.replace('/onboarding/analysis');
+    else goTo(pageIndex + 1);
+  };
   const back = () => (pageIndex === 0 ? router.back() : goTo(pageIndex - 1));
 
   const scaleQuestions = page.questions.filter((q) => q.kind === 'scale');
