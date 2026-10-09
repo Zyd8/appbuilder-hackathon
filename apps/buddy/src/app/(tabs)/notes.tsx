@@ -33,6 +33,7 @@ export default function Notes() {
         addPlaceholder={t('notes.capture.placeholder')}
         onAdd={(body) => addNote(body)}
         multiline
+        voice
       />
     </Screen>
   );
