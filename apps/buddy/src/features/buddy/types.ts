@@ -1,3 +1,6 @@
+import { MODEL_CATALOG } from './model-catalog';
+import { artifactFile, nativeModelPath } from './model-paths';
+
 export type BuddyModelId = 'gemma4-e2b' | 'gemma4-e4b';
 export type AttachmentKind = 'file' | 'image' | 'audio';
 export type AttachmentStatus = 'ready' | 'unsupported' | 'failed';
@@ -32,50 +35,28 @@ export type BuddyModel = {
   note: string;
 };
 
-/**
- * Device model directory: the app's own INTERNAL files dir.
- *
- * Not `/sdcard/Android/data/<pkg>/files/...`: on Android 11+ that external dir is not
- * reliably readable by the app for files placed there by another uid (e.g. `adb push`),
- * and llama.cpp then fails with a bare "failed to load model". Files here are owned by
- * the app and always readable. `llama.rn` accepts plain paths; `chat-service` normalizes
- * any `file://` prefix.
- */
-const MODELS_DIR = '/data/user/0/com.appbuilder.buddylevelup/files/models';
-const E2B_REPO = 'https://huggingface.co/unsloth/gemma-4-E2B-it-qat-mobile-GGUF/resolve/main';
-const E4B_REPO = 'https://huggingface.co/unsloth/gemma-4-E4B-it-qat-mobile-GGUF/resolve/main';
-
 export const DEFAULT_BUDDY_MODEL: BuddyModelId = 'gemma4-e2b';
 
-export const BUDDY_MODELS: Record<BuddyModelId, BuddyModel> = {
-  'gemma4-e2b': {
-    id: 'gemma4-e2b',
-    label: 'Gemma Default',
-    sizeLabel: 'Gemma 4 E2B',
-    path: `${MODELS_DIR}/gemma-4-E2B-it-qat-UD-Q2_K_XL.gguf`,
-    url: `${E2B_REPO}/gemma-4-E2B-it-qat-UD-Q2_K_XL.gguf`,
-    mmprojPath: `${MODELS_DIR}/gemma-4-E2B-mmproj-F16.gguf`,
-    mmprojUrl: `${E2B_REPO}/mmproj-F16.gguf`,
-    downloadGb: 3.2,
-    note: 'Balanced on-device model. Fits most phones with about 4 GB free.',
-  },
-  'gemma4-e4b': {
-    id: 'gemma4-e4b',
-    label: 'Gemma Pro',
-    sizeLabel: 'Gemma 4 E4B',
-    path: `${MODELS_DIR}/gemma-4-E4B-it-qat-UD-Q2_K_XL.gguf`,
-    url: `${E4B_REPO}/gemma-4-E4B-it-qat-UD-Q2_K_XL.gguf`,
-    mmprojPath: `${MODELS_DIR}/gemma-4-E4B-mmproj-F16.gguf`,
-    mmprojUrl: `${E4B_REPO}/mmproj-F16.gguf`,
-    downloadGb: 4.2,
-    note: 'Higher quality. Needs roughly 4.5 GB free and more memory.',
-  },
-};
+/** Compatibility projection for the Phase-1 screen; runtime uses the catalog directly. */
+export const BUDDY_MODELS: Record<BuddyModelId, BuddyModel> = Object.fromEntries(
+  Object.values(MODEL_CATALOG).map((entry) => [entry.id, {
+    id: entry.id,
+    label: entry.label,
+    sizeLabel: entry.sizeLabel,
+    get path() { return nativeModelPath(artifactFile(entry.model)); },
+    url: entry.model.url,
+    get mmprojPath() { return nativeModelPath(artifactFile(entry.projector)); },
+    mmprojUrl: entry.projector.url,
+    downloadGb: (entry.model.bytes + entry.projector.bytes) / 1e9,
+    note: entry.note,
+  }]),
+) as Record<BuddyModelId, BuddyModel>;
 
 export const BUDDY_MODEL_LIST: BuddyModel[] = [BUDDY_MODELS['gemma4-e2b'], BUDDY_MODELS['gemma4-e4b']];
 
 export function buddyModel(id: BuddyModelId): BuddyModel {
-  return BUDDY_MODELS[id] ?? BUDDY_MODELS[DEFAULT_BUDDY_MODEL];
+  if (!Object.prototype.hasOwnProperty.call(BUDDY_MODELS, id)) throw new Error('Unknown model ID');
+  return BUDDY_MODELS[id];
 }
 
 /** First-slice attachment limits. Rejected before anything is read or sent. */
