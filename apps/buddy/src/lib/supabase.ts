@@ -1,9 +1,10 @@
 /**
- * Optional Supabase client for opt-in cloud backup/sync (see ADR-004).
+ * Supabase client for Google sign-in (ADR-005) and opt-in cloud backup/sync (ADR-004).
  * Local SQLite stays the source of truth; the app is fully usable when this returns null.
  * Only the publishable key belongs in the app. Never ship a secret/service-role key.
  */
 import 'expo-sqlite/localStorage/install';
+import './crypto-polyfill';
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
@@ -23,6 +24,7 @@ export function getSupabase(): SupabaseClient | null {
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,
+        flowType: 'pkce',
       },
     });
   }

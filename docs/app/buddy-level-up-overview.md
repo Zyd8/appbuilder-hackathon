@@ -15,7 +15,7 @@ Buddy: Level Up combines two ideas:
 
 The two are one loop: **everyday tasks and quests live in the same list, and the companion is the thing that understands you well enough to pick quests that fit.**
 
-All core AI runs **on the device**. Onboarding answers, notes, check-ins, and progress stay on the phone. The app works fully offline.
+All core AI runs **on the device**. Onboarding answers, notes, check-ins, and progress stay on the phone. The app works fully offline after a one-time Google sign-in (changed by ADR-005: login is required before onboarding, and only name, email, and photo go to the account).
 
 ### The one-sentence pitch
 "Answer a few questions, and a private on-device AI builds you a personal quest board for growing in ways that go beyond the gym, with no internet and no account."
@@ -271,11 +271,11 @@ Areas are user-editable: users can hide an area or add a custom one later.
 
 ## 10. Privacy and Security
 
-- No account required. No cloud storage of user content.
+- A Google account is required before onboarding (ADR-005). Only identity data (name, email, photo) is stored in the cloud; no cloud storage of user content.
 - Analytics, if added, are opt-in, event-level only, and never include answers, notes, or reflections.
 - Just-in-time permission prompts (notifications first; location only if live insights are added).
 - Settings → Privacy: view stored data, export everything as JSON, delete all data, delete the AI model, toggle encryption.
-- Store privacy labels must remain accurate ("data not collected").
+- Store privacy labels must remain accurate (name, email, and photo are collected for the account per ADR-005; user content is not).
 
 ---
 
