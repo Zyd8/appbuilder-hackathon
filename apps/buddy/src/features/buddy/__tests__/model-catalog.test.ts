@@ -1,5 +1,5 @@
 import { MODEL_CATALOG, catalogEntry } from '../model-catalog';
-import { validateArtifactFilename } from '../model-paths';
+import { modelsDirectory, validateArtifactFilename } from '../model-paths';
 
 describe('pinned model catalog', () => {
   it('has distinct complete artifacts and refuses unknown IDs', () => {
@@ -21,5 +21,6 @@ describe('pinned model catalog', () => {
       expect(() => validateArtifactFilename(name)).toThrow();
     }
     expect(() => validateArtifactFilename('gemma-4-E2B.gguf')).not.toThrow();
+    expect(modelsDirectory().uri).toMatch(/\/models\/?$/);
   });
 });

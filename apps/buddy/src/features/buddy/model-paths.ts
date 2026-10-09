@@ -8,7 +8,7 @@ export function validateArtifactFilename(filename: string): void {
 }
 
 export function modelsDirectory(): Directory {
-  return new Directory(Paths.document, 'buddy-models');
+  return new Directory(Paths.document, 'models');
 }
 
 export function artifactFile(artifact: ModelArtifact): File {
