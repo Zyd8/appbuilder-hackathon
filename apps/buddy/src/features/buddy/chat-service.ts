@@ -53,8 +53,12 @@ async function ensureLoaded(input: GenerateInput): Promise<{ context: LlamaConte
     model: toNativePath(input.modelPath),
     n_ctx: 4096,
     n_batch: 256,
-    n_gpu_layers: 99,
-    use_mlock: true,
+    // CPU only: this build has no working GPU/NPU backend on the device, and asking for
+    // GPU layers makes the load fail rather than fall back.
+    n_gpu_layers: 0,
+    // Never mlock on Android: locking a multi-GB model in RAM pushes the phone into
+    // swap/OOM and aborts the load. Let the kernel page it in and out instead.
+    use_mlock: false,
   });
 
   // The projector is optional: text chat works without it, images need it.

@@ -33,10 +33,15 @@ export type BuddyModel = {
 };
 
 /**
- * Device model directory. `llama.rn` accepts plain paths, so the catalog stores paths and
- * `chat-service` normalizes any `file://` prefix.
+ * Device model directory: the app's own INTERNAL files dir.
+ *
+ * Not `/sdcard/Android/data/<pkg>/files/...`: on Android 11+ that external dir is not
+ * reliably readable by the app for files placed there by another uid (e.g. `adb push`),
+ * and llama.cpp then fails with a bare "failed to load model". Files here are owned by
+ * the app and always readable. `llama.rn` accepts plain paths; `chat-service` normalizes
+ * any `file://` prefix.
  */
-const MODELS_DIR = '/sdcard/Android/data/com.appbuilder.buddylevelup/files/models';
+const MODELS_DIR = '/data/user/0/com.appbuilder.buddylevelup/files/models';
 const E2B_REPO = 'https://huggingface.co/unsloth/gemma-4-E2B-it-qat-mobile-GGUF/resolve/main';
 const E4B_REPO = 'https://huggingface.co/unsloth/gemma-4-E4B-it-qat-mobile-GGUF/resolve/main';
 
