@@ -1,4 +1,4 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { View } from 'react-native';
@@ -10,7 +10,7 @@ import { usePreviewStore } from '@/state/preview-store';
 import { useTheme } from '@/theme/use-theme';
 
 export default function RootLayout() {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const setAccount = usePreviewStore((s) => s.setAccount);
   const syncAssessment = usePreviewStore((s) => s.syncAssessment);
 
@@ -21,11 +21,11 @@ export default function RootLayout() {
       .catch(() => {});
     syncAssessment();
   }, [setAccount, syncAssessment]);
-  const base = isDark ? DarkTheme : DefaultTheme;
+
   const navTheme = {
-    ...base,
+    ...DefaultTheme,
     colors: {
-      ...base.colors,
+      ...DefaultTheme.colors,
       primary: colors.primary,
       background: colors.background,
       card: colors.surface,
@@ -36,7 +36,7 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={navTheme}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <StatusBar style="dark" />
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />

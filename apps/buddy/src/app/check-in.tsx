@@ -63,7 +63,7 @@ export default function CheckInScreen() {
         }}
       />
       <AppText variant="caption" color="textMuted">
-        {t('onboarding.welcome.privacy')}
+        {t('checkin.privacy')}
       </AppText>
     </Screen>
   );
