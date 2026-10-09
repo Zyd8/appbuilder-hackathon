@@ -296,7 +296,13 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
       localBuddyContext(get()),
     );
 
-    void generateBuddyReply({ modelId: model.id, modelPath: model.path, prompt, attachments: staged })
+    void generateBuddyReply({
+      modelId: model.id,
+      modelPath: model.path,
+      mmprojPath: model.mmprojPath,
+      prompt,
+      attachments: staged,
+    })
       .then((reply) => {
         set((current) => ({
           buddyTyping: false,

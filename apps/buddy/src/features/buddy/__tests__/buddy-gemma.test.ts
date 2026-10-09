@@ -1,6 +1,12 @@
 import { attachmentPromptLines } from '@/features/buddy/attachment-service';
 import { buildBuddyPrompt, mediaUrisFor } from '@/features/buddy/prompt-builder';
-import { BUDDY_MODELS, DEFAULT_BUDDY_MODEL, buddyModel, type ChatAttachment } from '@/features/buddy/types';
+import {
+  BUDDY_MODELS,
+  DEFAULT_BUDDY_MODEL,
+  RUNTIME_SUPPORTS_AUDIO,
+  buddyModel,
+  type ChatAttachment,
+} from '@/features/buddy/types';
 
 function attachment(overrides: Partial<ChatAttachment> = {}): ChatAttachment {
   return {
@@ -30,7 +36,21 @@ describe('Buddy model selection', () => {
   it('gives every model a distinct on-device artifact path', () => {
     const paths = Object.values(BUDDY_MODELS).map((model) => model.path);
     expect(new Set(paths).size).toBe(paths.length);
-    expect(paths.every((path) => path.endsWith('.litertlm'))).toBe(true);
+    expect(paths.every((path) => path.endsWith('.gguf'))).toBe(true);
+  });
+
+  it('points each model at its own GGUF download and projector, under the app package', () => {
+    for (const model of Object.values(BUDDY_MODELS)) {
+      expect(model.url).toMatch(/^https:\/\/huggingface\.co\/.+\/gemma-4-E[24]B.+\/resolve\/main\/.+\.gguf$/);
+      expect(model.mmprojUrl).toMatch(/\/resolve\/main\/mmproj-F16\.gguf$/);
+      expect(model.path).toContain('com.appbuilder.buddylevelup');
+      expect(model.mmprojPath).toContain('com.appbuilder.buddylevelup');
+      expect(model.downloadGb).toBeGreaterThan(0);
+    }
+  });
+
+  it('keeps audio labelled as unsupported by the current runtime', () => {
+    expect(RUNTIME_SUPPORTS_AUDIO).toBe(false);
   });
 });
 

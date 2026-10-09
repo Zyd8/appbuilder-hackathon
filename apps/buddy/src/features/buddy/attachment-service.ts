@@ -3,6 +3,7 @@ import { File } from 'expo-file-system';
 
 import {
   ATTACHMENT_LIMITS,
+  RUNTIME_SUPPORTS_AUDIO,
   isTextAttachment,
   type AttachmentKind,
   type ChatAttachment,
@@ -63,8 +64,13 @@ async function prepareAttachment(asset: {
   }
 
   if (!isTextAttachment(mimeType)) {
-    // Images and audio pass straight to the model; other files stay attached but are not model input.
-    if (kind === 'image' || kind === 'audio') return base;
+    // Images pass to the model through the vision projector. Audio and other files stay
+    // attached so nothing is lost, but they are labelled rather than silently dropped.
+    if (kind === 'image') return base;
+    if (kind === 'audio' && RUNTIME_SUPPORTS_AUDIO) return base;
+    if (kind === 'audio') {
+      return { ...base, status: 'unsupported', error: 'Audio input is not available in this build yet.' };
+    }
     return { ...base, status: 'unsupported', error: 'This file type is not read by Buddy yet.' };
   }
 

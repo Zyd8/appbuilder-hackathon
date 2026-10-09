@@ -17,14 +17,17 @@ The chatbot page is `apps/buddy/src/app/(tabs)/buddy.tsx`. It currently uses the
 - Keep the existing Buddy screen, `AppText`, `Screen`, theme tokens, mascot, bubbles, typing state, and navigation.
 - Add one small feature module under `apps/buddy/src/features/buddy/` rather than introducing a new state framework or data layer.
 - Keep one native model loaded at a time.
-- Default model: Gemma Default (Gemma 4 E2B) instruction-tuned LiteRT-LM artifact.
-- Optional model: Gemma Pro (Gemma 4 E4B) instruction-tuned LiteRT-LM artifact.
+- Default model: Gemma Default (Gemma 4 E2B) GGUF, run on device through `llama.rn` (llama.cpp).
+- Optional model: Gemma Pro (Gemma 4 E4B) GGUF, same runtime.
+- One runtime for Android and iOS. `llama.rn` is the least-friction cross-platform option: it ships prebuilt iOS and Android binaries and has an Expo config plugin, so no custom native module is required.
 - No cloud chat API, cloud transcription, RAG/vector database, tools, or background inference.
 - No silent model fallback. If the selected model is unavailable, show the actionable error.
 
 ## Branch and source boundaries
 
-The branch must be created from the recorded `origin/main` SHA above. Do not edit the separate `apps/expo-go-sample` application in this branch. Reuse its LiteRT-LM experiment only as reference; the Buddy app gets its own local native module under `apps/buddy/modules/pocketops-litert-lm` so the app does not import source from another app.
+The branch was created from the recorded `origin/main` SHA above. Do not edit the separate `apps/expo-go-sample` application in this branch.
+
+An earlier revision of this plan added a local LiteRT-LM Expo module. That approach was abandoned: Google's LiteRT-LM path is Android-first, its iOS story needs a separate Swift Package integration, and a Linux dev machine cannot build or verify either. `llama.rn` covers both platforms from one dependency, so the custom module was removed.
 
 ## Files to change
 
@@ -38,32 +41,26 @@ Existing:
 - `apps/buddy/src/domain/types.ts`
   - Extend `ChatMessage` with model and attachment metadata.
 - `apps/buddy/package.json`, `app.json`, and lockfile
-  - Add only the picker/audio/filesystem/native module dependencies required by the first slice.
+  - Add only what the first slice needs: `llama.rn`, `expo-document-picker`, `expo-file-system`, `expo-build-properties`, and the `llama.rn` plugin entry in `app.json`.
 
 New:
 
-- `apps/buddy/src/features/buddy/types.ts`
-- `apps/buddy/src/features/buddy/model-catalog.ts`
-- `apps/buddy/src/features/buddy/model-manager.ts`
-- `apps/buddy/src/features/buddy/chat-service.ts`
-- `apps/buddy/src/features/buddy/attachment-service.ts`
-- `apps/buddy/src/features/buddy/prompt-builder.ts`
-- `apps/buddy/src/features/buddy/persistence.ts`
-- `apps/buddy/src/features/buddy/__tests__/`
-- `apps/buddy/modules/pocketops-litert-lm/` with Android LiteRT-LM and iOS Swift Package implementations
-- `docs/decisions/007-buddy-gemma3n-native-runtime.md`
+- `apps/buddy/src/features/buddy/types.ts` — model catalog and attachment contract
+- `apps/buddy/src/features/buddy/chat-service.ts` — `llama.rn` load, generate, unload
+- `apps/buddy/src/features/buddy/attachment-service.ts` — picker, limits, local text extraction
+- `apps/buddy/src/features/buddy/prompt-builder.ts` — pure prompt and media selection
+- `apps/buddy/src/features/buddy/__tests__/buddy-gemma.test.ts`
+- `docs/decisions/007-buddy-gemma-native-runtime.md`
 
 ## Model/runtime contract
 
-Expose a narrow native API:
+Expose one narrow service in `chat-service.ts`:
 
-- `getRuntimeInfo()`
-- `loadModel(modelId, modelPath)`
-- `unloadModel()`
-- `generate(request)` with streaming text/state callbacks
-- `stopGeneration(requestId)`
+- `isOnDeviceRuntimeAvailable()`
+- `generateBuddyReply({ modelId, modelPath, mmprojPath, prompt, attachments })` → reply text
+- `unloadBuddyModel()`
 
-The request carries text plus optional supported image/audio inputs. The native layer owns LiteRT-LM engine/conversation handles and releases them on model switch, stop, and module teardown. JavaScript state stores only serializable status, messages, paths, and metadata.
+One `LlamaContext` is cached per model id; switching models releases the old context first, and a failed generation drops the context so the next attempt starts clean. JavaScript state stores only serializable status, messages, paths, and metadata, never native handles. Token streaming is deferred: the UI keeps its existing typing indicator.
 
 Model states shown in the UI:
 
@@ -88,7 +85,7 @@ Use the smallest practical picker surface:
 
 Supported first-slice content:
 
-- Images accepted by the pinned Gemma 4 LiteRT-LM model.
+- Images accepted by the pinned Gemma 4 GGUF model, sent through its `mmproj` vision projector.
 - WAV/MP3 audio accepted by that model/runtime.
 - `.txt`, `.md`, `.json`, and `.csv` as locally extracted text.
 - Other files can be retained as attachments but must display `unsupported for model input`; do not pretend arbitrary PDF/DOCX/archive parsing works.
@@ -124,24 +121,24 @@ Copy selected files into app-controlled storage. Persist metadata and local URIs
 
 ## Android/iOS boundary
 
-Shared:
+Shared by design:
 
-- UI, picker orchestration, model catalog, limits, persistence, prompt construction, and error states.
+- One runtime, `llama.rn`, for both platforms. It ships prebuilt binaries for iOS (`rnllama.xcframework`, Metal) and Android (`jniLibs/arm64-v8a`), so there is one code path and one model format.
+- UI, picker orchestration, model catalog, limits, prompt construction, and error states are platform-neutral.
 
 Android:
 
-- First native target.
-- Finish and verify the Kotlin LiteRT-LM bridge on a physical arm64 Android device.
-- Use LiteRT-LM Android dependency and Gemma `.litertlm` artifacts.
+- Build and verify on a physical arm64 device.
 
 iOS:
 
-- Implement the Swift Package Manager LiteRT-LM bridge separately.
-- The current iOS stub must remain visibly unavailable until the Swift runtime is linked and tested.
-- Do not claim iOS Gemma support from Android success.
-- If the pinned LiteRT-LM release cannot load the selected Gemma artifacts on iOS, keep the model disabled there with a clear explanation; do not silently use cloud inference.
+- Uses the same shared code and the same GGUF artifacts.
+- Requires a development build. iOS simulators do not support the Metal path, so real-device or Metal-capable verification is needed.
+- Metal needs Apple7-class GPU hardware.
 
-Expo Go is not a valid native-model test target. Use a development build/native build.
+Constraint that has not changed: this environment (Linux VPS, Linux laptop) cannot build iOS. Verifying iOS requires EAS Build or a Mac, and until that happens iOS must be reported as unverified rather than working.
+
+Expo Go is not a valid native-model test target. Use a development build.
 
 ## Phases
 
@@ -184,24 +181,32 @@ Expo Go is not a valid native-model test target. Use a development build/native 
 
 Implemented on `feat/buddy-gemma-attachments`:
 
-- Model catalog with `Gemma Default (Gemma 4 E2B)` as the default and `Gemma Pro (Gemma 4 E4B)` as the opt-in alternative.
-- Native LiteRT-LM Expo module at `apps/buddy/modules/pocketops-litert-lm` with `loadModel`, `generate(prompt, images, audio)`, `unload`, and `isLoaded`. Android is implemented against `litertlm-android`; iOS throws an explicit "not available in this build" error rather than pretending.
-- Lazy native import so the shared app still boots where the module is absent (Expo Go, web) and reports the model as unavailable.
-- `sendChat` in `preview-store.ts` now calls the on-device model instead of the 900 ms placeholder timer, appends a real Buddy reply, and surfaces failures as both an inline error and a failed message.
-- Attachment picker (`expo-document-picker`) with local validation and limits: 3 per message, 10 MB images, 25 MB audio, 10 MB files, 100k extracted characters. `.txt`/`.md`/`.json`/`.csv` are read locally via `expo-file-system`; other types stay attached and are labelled as not model-readable.
+- One shared runtime: `llama.rn` 0.13.0-rc.7, configured through the `llama.rn` Expo config plugin plus `expo-build-properties`, both registered in `apps/buddy/app.json`.
+- Model catalog with `Gemma Default (Gemma 4 E2B)` as the default and `Gemma Pro (Gemma 4 E4B)` as the opt-in alternative, each pointing at a real published GGUF plus its `mmproj` vision projector.
+- `chat-service.ts` keeps one `LlamaContext` per model id, releases it on switch, attaches the projector when present, and passes images through `media_paths`. When the projector is missing it says so in the prompt instead of pretending the image was read.
+- `sendChat` in `preview-store.ts` calls the on-device model instead of the 900 ms placeholder timer, appends a real Buddy reply, and surfaces failures as both an inline error and a failed message.
+- Attachment picker (`expo-document-picker`) with local validation and limits: 3 per message, 10 MB images, 25 MB audio, 10 MB files, 100k extracted characters. `.txt`/`.md`/`.json`/`.csv` are read locally via `expo-file-system`. Images are sent to the model. Audio and other files stay attached but are labelled as not model-readable.
 - Buddy screen keeps the existing Angat design system and adds a model selector, attachment chips, an error banner, and an attach button.
-- New unit tests for model selection, prompt building, turn capping, and attachment routing.
+- Unit tests cover model selection and artifact wiring, prompt building, turn capping, and attachment routing.
 
-Gates run in `apps/buddy`: `npx tsc --noEmit` (0 errors), `npx expo lint` (0 errors), `npx jest` (7 suites, 57 tests passing).
+Gates run in `apps/buddy`: `npx tsc --noEmit` (0 errors), `npx expo lint` (0 errors), `npx jest` (7 suites, 59 tests passing).
 
 Not yet done (do not treat as verified):
 
-- No development-build APK has been produced or installed for this branch, so on-device generation has not been exercised.
-- No `Gemma4-*.litertlm` artifact has been installed on a device, and the pinned artifact URLs/checksums are still placeholders in the catalog.
+- No development build has been produced or installed for this branch, so on-device generation has not been exercised on either platform.
+- No Gemma 4 GGUF is installed on a device. The catalog URLs are real, published artifacts, but no checksum pinning or in-app download/verify flow exists yet.
+- Audio input is not implemented. The pinned Gemma 4 `mmproj` carries a vision projector, so audio attachments are stored and labelled rather than sent.
 - Chat history and staged attachments are still in-memory, consistent with the existing preview store; restart persistence is not implemented.
-- iOS has no real LiteRT-LM bridge.
-- Images and audio are passed to the native layer as file paths, but multimodal prompt construction has not been tested against a real model.
+- Token streaming is not wired; the UI shows the existing typing indicator until the whole reply lands.
+- iOS shares the code and the dependency, but nothing on iOS has been built or run. This machine is Linux, so iOS needs EAS Build or a Mac.
+- Device free space matters: Gemma Default is roughly 3.2 GB and Gemma Pro roughly 4.2 GB with the projector. The test device had about 4 GB free, so only the default model realistically fits.
 
-## Model decision note
+## Model and runtime decision notes
 
-This plan originally targeted Gemma 3n E2B/E4B. It was updated to Gemma 4 E2B/E4B because Gemma 4 is the newer mobile/edge-targeted family. Nothing in the architecture depends on the family: the catalog, the artifact paths, and the native adapter are the only family-specific parts.
+This plan originally targeted Gemma 3n E2B/E4B, then Gemma 4 through a local LiteRT-LM module. It now uses Gemma 4 GGUF through `llama.rn`.
+
+- Gemma 4 instead of Gemma 3n: Gemma 4 is the newer mobile/edge-targeted family.
+- `llama.rn` instead of LiteRT-LM: the requirement is Android and iOS out of the box with the least friction. `llama.rn` ships prebuilt binaries for both platforms and has an Expo plugin, so one dependency replaces a platform-specific native integration. LiteRT-LM remains the better long-term path if Gemma's `.litertlm` packaging becomes important, but it is Android-first and cannot be verified from Linux.
+- GGUF `UD-Q2_K_XL` instead of another quantization: it is the smallest published mobile build, and device free space is the binding constraint.
+
+Nothing in the architecture depends on the family or runtime beyond the catalog and the adapter: swapping either means editing `types.ts` and `chat-service.ts`, not the UI, the store, or the attachments.

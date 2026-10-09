@@ -1,9 +1,0 @@
-{
-  "platforms": ["apple", "android"],
-  "apple": {
-    "modules": ["PocketOpsLiteRTLMModule"]
-  },
-  "android": {
-    "modules": ["expo.modules.pocketopslitertlm.PocketOpsLiteRTLMModule"]
-  }
-}
