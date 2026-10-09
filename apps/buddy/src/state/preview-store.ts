@@ -16,6 +16,7 @@ import {
   questFromTemplate,
   todayIso,
 } from '@/data/preview';
+import type { AccountProfile } from '@/domain/account';
 import type {
   ChatMessage,
   CheckIn,
@@ -27,6 +28,7 @@ import type {
 } from '@/domain/types';
 import { grantXp, levelFromTotalXp } from '@/domain/xp';
 import { t } from '@/i18n';
+import { loadCachedProfile } from '@/lib/account-storage';
 
 export const FREE_REROLLS_PER_DAY = 2;
 
@@ -36,6 +38,8 @@ export interface CompletionResult {
 }
 
 interface PreviewState {
+  /** Signed-in Google account, cached on the device (ADR-005). Required before onboarding. */
+  account?: AccountProfile;
   onboarded: boolean;
   answers: Record<string, OnboardingAnswer>;
   profile: PlayerProfile;
@@ -52,6 +56,8 @@ interface PreviewState {
   buddyTyping: boolean;
   allowPhysical: boolean;
 
+  setAccount: (account: AccountProfile) => void;
+  clearAccount: () => void;
   setAnswer: (questionId: string, answer: OnboardingAnswer | undefined) => void;
   finishOnboarding: () => void;
   completeQuest: (questId: string, reflection?: string) => CompletionResult;
@@ -92,6 +98,11 @@ function localId(prefix: string): string {
 
 export const usePreviewStore = create<PreviewState>()((set, get) => ({
   ...initialState(),
+  account: loadCachedProfile(),
+
+  setAccount: (account) => set({ account }),
+
+  clearAccount: () => set({ ...initialState(), account: undefined }),
 
   setAnswer: (questionId, answer) =>
     set((s) => {
