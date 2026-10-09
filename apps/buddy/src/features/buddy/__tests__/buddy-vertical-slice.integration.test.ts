@@ -1,13 +1,13 @@
 /// <reference types="jest" />
-jest.mock('expo-sqlite/localStorage/install', () => ({}));
-jest.mock('expo-crypto', () => ({ randomUUID: () => '00000000-0000-4000-8000-000000000123' }));
-
 import { loadNotes } from '@/lib/notes-storage';
 import type { AIEngine, AIEngineOutput } from '../contracts/ai-engine';
 import type { DomainAdapterDependencies } from '../adapters/domain-adapters';
 import { createBuddyReadPorts, createBuddyWritePorts } from '../adapters/domain-adapters';
 import { BuddyChatController } from '../buddy-chat-controller';
 import type { MemoryRepository } from '../memory/memory-repository';
+
+jest.mock('expo-sqlite/localStorage/install', () => ({}));
+jest.mock('expo-crypto', () => ({ randomUUID: () => '00000000-0000-4000-8000-000000000123' }));
 
 const stored = new Map<string, string>();
 const NOW = '2026-10-10T10:00:00.000Z';
@@ -46,7 +46,8 @@ function fixture(script: AIEngineOutput[]) {
 it('reads current notes, confirms exactly one local todo, then reopens its durable document', async () => {
   const f = fixture([tool('read', 'notes.read'), tool('save', 'notes.create', {
     body: 'Call dentist', expectedRevision: '0', idempotencyKey: 'vertical-create-0001',
-  }), { kind: 'final', text: '<think>private</think>Buddy: I saved Call dentist.' }]);
+  }), tool('read-back', 'notes.read', { id: '00000000-0000-4000-8000-000000000123' }),
+  { kind: 'final', text: '<think>private</think>Buddy: I saved Call dentist.' }]);
   const pending = await f.controller.start({ modelId: 'gemma4-e2b',
     history: [{ role: 'user', text: 'Add a todo to call dentist' }] });
   expect(pending.state).toBe('pending');
@@ -55,6 +56,7 @@ it('reads current notes, confirms exactly one local todo, then reopens its durab
   const completed = await f.controller.decide(pending.confirmation.callId, 'confirm');
   expect(completed).toMatchObject({ state: 'complete', answer: 'I saved Call dentist.' });
   expect(completed.summary).toContain('notes.create: succeeded.');
+  expect(completed.summary).toContain('notes.read: succeeded.');
   expect(loadNotes('vertical-test').notes).toHaveLength(1);
   const persisted = loadNotes('vertical-test');
   expect(persisted.notes[0]).toMatchObject({ body: 'Call dentist', done: false });
@@ -62,7 +64,7 @@ it('reads current notes, confirms exactly one local todo, then reopens its durab
   const reopened = fixture([]);
   expect((await reopened.reads.notes.byId(persisted.notes[0].id)).value?.body).toBe('Call dentist');
   expect((await reopened.reads.notes.list()).revision).toBe('1');
-  expect(f.generate).toHaveBeenCalledTimes(3);
+  expect(f.generate).toHaveBeenCalledTimes(4);
 });
 
 it('declining consent leaves the durable document unchanged', async () => {

@@ -18,7 +18,8 @@ export async function executeRead(call: ValidatedReadCall, ports: BuddyReadPorts
       case 'quests.detail.read': snapshot = await ports.quests.detail(call.arguments.id!); break;
       case 'nudge.current.read': snapshot = await ports.progress.currentNudge(); break;
       case 'progress.xp_level_rank.read': snapshot = await ports.progress.xpLevelRank(); break;
-      case 'notes.read': snapshot = await ports.notes.list(); break;
+      case 'notes.read': snapshot = call.arguments.id
+        ? await ports.notes.byId(call.arguments.id) : await ports.notes.list(); break;
       case 'memory.documents.read': snapshot = await ports.memory.documents(); break;
       case 'model.status': snapshot = await ports.model.status(); break;
       case 'input.capabilities.read': snapshot = await ports.input.capabilities(); break;

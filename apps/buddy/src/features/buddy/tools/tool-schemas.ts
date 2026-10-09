@@ -116,6 +116,10 @@ export function validateToolCall(input: unknown): ValidationResult {
     if (call.name === 'quests.detail.read') {
       if (!keysAre(args, ['id']) || typeof args.id !== 'string' || !ID.test(args.id))
         return { ok: false, code: 'invalid_arguments', message: 'A quest ID is required', call };
+    } else if (call.name === 'notes.read') {
+      if (!keysAre(args, ['id']) || (args.id !== undefined &&
+          (typeof args.id !== 'string' || !ID.test(args.id))))
+        return { ok: false, code: 'invalid_arguments', message: 'Invalid note ID', call };
     } else if (Object.keys(args).length !== 0) {
       return { ok: false, code: 'invalid_arguments', message: 'This read tool accepts no arguments', call };
     }

@@ -4,6 +4,8 @@ import type { AIEngineRequest } from '../contracts/ai-engine';
 const empty = { type: 'object', properties: {}, additionalProperties: false } as const;
 const detail = { type: 'object', properties: { id: { type: 'string', minLength: 1, maxLength: 128 } },
   required: ['id'], additionalProperties: false } as const;
+const optionalDetail = { type: 'object', properties: detail.properties,
+  additionalProperties: false } as const;
 const note = { type: 'object', properties: {
   body: { type: 'string', minLength: 1, maxLength: 2000 },
   priority: { type: 'string', enum: ['low', 'normal', 'high'] },
@@ -26,7 +28,7 @@ export interface ToolManifestEntry {
 
 export const TOOL_MANIFEST: readonly ToolManifestEntry[] = [
   ...READ_TOOL_NAMES.map((name: ReadToolName) => ({ name, permission: 'read-local' as const,
-    parameters: name === 'quests.detail.read' ? detail : empty })),
+    parameters: name === 'quests.detail.read' ? detail : name === 'notes.read' ? optionalDetail : empty })),
   { name: 'notes.create', permission: 'always-confirmed-sensitive-write', parameters: note },
 ];
 

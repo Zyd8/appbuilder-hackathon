@@ -33,3 +33,14 @@ it('redacts private URI fields and preserves preview durability honestly', async
   expect(result).toMatchObject({ ok: true, data: [{ id: 'q' }], metadata: { durability: 'preview', truncated: true } });
   expect(JSON.stringify(result)).not.toContain('/private/photo.jpg');
 });
+
+it('reads a created note by its exact app-owned ID', async () => {
+  const byId = jest.fn(async () => snapshot({ id: 'note-1', body: 'Call dentist' }));
+  const list = jest.fn(async () => snapshot([]));
+  const named = { ...ports, notes: { ...ports.notes, byId, list } };
+  const result = await executeRead({ id: 'c2', name: 'notes.read', arguments: { id: 'note-1' } },
+    named as unknown as BuddyReadPorts, () => '2026-10-10T10:00:00Z');
+  expect(byId).toHaveBeenCalledWith('note-1');
+  expect(list).not.toHaveBeenCalled();
+  expect(result).toMatchObject({ ok: true, data: { id: 'note-1', body: 'Call dentist' } });
+});

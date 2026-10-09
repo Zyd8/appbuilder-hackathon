@@ -1,10 +1,11 @@
 /// <reference types="jest" />
-jest.mock('expo-sqlite/localStorage/install', () => ({}));
 import type { Note } from '@/domain/types';
 import type { AIEngine, AIEngineOutput } from '../contracts/ai-engine';
 import type { BuddyReadPorts, BuddyWritePorts, ReadSnapshot } from '../contracts/domain-ports';
 import { BuddyChatController } from '../buddy-chat-controller';
 import type { MemoryRepository } from '../memory/memory-repository';
+
+jest.mock('expo-sqlite/localStorage/install', () => ({}));
 
 const NOW = '2026-10-10T10:00:00.000Z';
 const snapshot = <T>(value: T, revision = '0'): ReadSnapshot<T> => ({

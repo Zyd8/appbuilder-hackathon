@@ -8,6 +8,7 @@ describe('tool schemas', () => {
   it('accepts exact read and note calls', () => {
     expect(validateToolCall(call('profile.read', {})).ok).toBe(true);
     expect(validateToolCall(call('quests.detail.read', { id: 'q1' })).ok).toBe(true);
+    expect(validateToolCall(call('notes.read', { id: 'note-1' })).ok).toBe(true);
     expect(validateToolCall(call('notes.create', note)).ok).toBe(true);
   });
 
@@ -19,6 +20,7 @@ describe('tool schemas', () => {
 
   it('rejects unknown, duplicate, deep, malformed, path, and large arguments', () => {
     expect(validateToolCall(call('profile.read', { prefix: 'profile' })).ok).toBe(false);
+    expect(validateToolCall(call('notes.read', { id: '../private' })).ok).toBe(false);
     expect(validateToolCall(call('notes.create', { ...note, photoUri: '/private/photo.jpg' })).ok).toBe(false);
     expect(validateToolCall(call('notes.create', { ...note, date: '2026-02-30' })).ok).toBe(false);
     expect(validateToolCall(call('notes.create', '{"body":"a","body":"b","expectedRevision":"0","idempotencyKey":"safe-key-1234567890"}'))).toMatchObject({ ok: false, code: 'invalid_arguments' });
