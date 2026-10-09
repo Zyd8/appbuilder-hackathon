@@ -8,14 +8,14 @@
 PocketOps now exposes one model switcher in the chat screen:
 
 - Qwen3 1.7B — available through `llama.rn`/`llama.cpp` and verified on the Pixel 9A.
-- Gemma 3n E2B — selectable, but marked unavailable until its LiteRT-LM native adapter is added.
-- Gemma 3n E4B — selectable, but marked unavailable until its LiteRT-LM native adapter is added.
+- Gemma 3n E2B — wired to the new LiteRT-LM Expo native module. The Android Kotlin adapter compiles against LiteRT-LM 0.16.1; the `.litertlm` model still needs to be installed on the device before runtime verification.
+- Gemma 3n E4B — wired to the same Android adapter path; the model file still needs to be installed and tested.
 
-Selecting Gemma does not pretend to run Qwen or silently fall back. Sending a message reports that the required native adapter is not installed.
+The UI reports the selected runtime and surfaces model-loading failures instead of silently falling back. iOS currently has an explicit LiteRT-LM stub that reports the Swift Package integration is not linked yet.
 
-## Why Gemma is not wired into the current runtime
+## Why Gemma uses a separate native runtime
 
-Qwen3 is loaded from a GGUF file through `llama.rn`. Gemma 3n uses the LiteRT-LM model/runtime path, so it is not a model-file-only swap in this app. It needs a separate native adapter, model packaging/download flow, lifecycle management, and Android/iOS verification.
+Gemma 3n uses the LiteRT-LM model/runtime path, so it is not a model-file-only swap in this app. The Android bridge now exists separately from `llama.rn`.
 
 Google's current LiteRT-LM getting-started path is Android/JVM-oriented. The existing React Native `llama.rn` path remains the cross-platform working baseline.
 
