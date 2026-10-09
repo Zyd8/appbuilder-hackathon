@@ -5,6 +5,7 @@
 - Product brief: `docs/app/buddy-level-up-overview.md`
 - Stack decision: `docs/decisions/004-buddy-stack-expo-supabase.md`
 - Login decision: `docs/decisions/005-google-login-before-onboarding.md`
+- Onboarding answers decision: `docs/decisions/006-onboarding-answers-cloud-backup.md`
 - Code: `apps/buddy/`
 
 ## Goal
@@ -15,7 +16,7 @@ Ship the brief's Hackathon MVP slice (section 14) as a React Native app, buildin
 
 Widgets, live news/weather, story cards, story arcs, and multi-user sync (brief section 14). Supabase backup of user content stays opt-in and arrives last (Phase 7).
 
-**Change (ADR-005):** a Google account is now required before onboarding. Only identity data (id, email, name, photo) goes to Supabase `public.profiles`; everything else stays on the device.
+**Change (ADR-005):** a Google account is now required before onboarding. Identity data (id, email, name, photo) goes to Supabase `public.profiles`. **ADR-006:** onboarding answers are also backed up to `public.onboarding_assessments`. Everything else stays on the device.
 
 ## Assumptions
 
@@ -71,6 +72,15 @@ The brief's section 15 has been re-sequenced so the UI is visible first and Supa
 **Limitations:** the first launch needs internet; the browser-based flow should be refactored to native sign-in (`docs/todo/001-native-google-signin.md`); sign-out does not delete the cloud row; onboarding progress is still in memory (Phase 2).
 
 **Manual setup:** Google Cloud Web OAuth client (redirect `https://<project-ref>.supabase.co/auth/v1/callback`) → Supabase Google provider; Supabase redirect URLs `exp://**` and `buddylevelup://**`.
+
+## Saved onboarding answers (ADR-006) — built (part of Phase 2)
+
+- `src/domain/assessment.ts`: versioned answer document, local-first sync with mid-push edit safety, restore rules, and `buildAssessmentContext()` (labeled JSON for the AI). 13 unit tests.
+- `src/lib/assessment-storage.ts` (localStorage, `buddy.onboarding.<userId>`) and `src/lib/assessment-sync.ts` (queued Supabase upsert, pull and restore).
+- Store: answers save per tap, `onboarded` is derived from `completedAt` (so it survives a restart), sync runs per page, on finish, on restart onboarding and on launch. Login restores the cloud copy and sends finished users to Today.
+- Migration `apps/buddy/supabase/migrations/20261009150000_create_onboarding_assessments.sql` applied (owner-only RLS).
+
+**Still Phase 2:** deterministic scoring from these answers into the Player Profile, a resume-at-page indicator, and SQLite for the remaining data.
 
 ## Risks and open questions
 
