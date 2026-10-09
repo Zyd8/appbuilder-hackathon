@@ -23,6 +23,10 @@ export const colors = {
   successSoft: '#E0F2FA',
   border: '#D6E3FB',
   glow: 'rgba(0, 71, 217, 0.14)',
+  /** Frosted-glass fill for floating bars (the tab bar), drawn over a blur. */
+  glass: 'rgba(255, 255, 255, 0.62)',
+  /** Hairline edge of a glass bar. */
+  glassBorder: 'rgba(255, 255, 255, 0.85)',
   /** Shadow tint for elevated elements on the brand gradient. */
   shadow: '#001A66',
   danger: '#B42318',

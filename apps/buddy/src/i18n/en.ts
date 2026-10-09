@@ -18,7 +18,7 @@ export const en = {
   'tabs.today': 'Today',
   'tabs.quests': 'Quests',
   'tabs.player': 'Player',
-  'tabs.buddy': 'Ask Buddy',
+  'tabs.buddy': 'Buddy',
   'tabs.notes': 'Notes',
 
   'landing.overline': 'Level up, one quest at a time',
