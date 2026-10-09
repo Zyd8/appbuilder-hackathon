@@ -74,19 +74,17 @@ export interface PlayerProfile {
   insights: Insight[];
 }
 
-export interface Task {
-  id: string;
-  title: string;
-  due?: string;
-  priority: 'low' | 'normal' | 'high';
-  area?: LifeArea;
-  done: boolean;
-}
-
+/** One item type for everything the player writes down: a thought, a to-do, or both (ADR-007). */
 export interface Note {
   id: string;
   body: string;
   createdAt: string;
+  /** Every note can be checked off. */
+  done: boolean;
+  priority: 'low' | 'normal' | 'high';
+  /** ISO date (YYYY-MM-DD). Notes due today show on the Today tab. */
+  due?: string;
+  area?: LifeArea;
 }
 
 export interface ChatMessage {

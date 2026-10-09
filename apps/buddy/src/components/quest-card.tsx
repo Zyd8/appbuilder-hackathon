@@ -12,30 +12,28 @@ import { AppText } from './app-text';
 import { AreaTag } from './area-tag';
 import { Button } from './button';
 import { Card } from './card';
-import { useToast } from './toast';
+import { useCompleteQuest } from './use-complete-quest';
 
 type QuestCardProps = {
   quest: Quest;
   /** Daily quests can be swapped; weekly and side quests cannot. */
   canSwap?: boolean;
+  /** Called with the replacement quest's id after a successful swap. */
+  onSwapped?: (newId: string) => void;
 };
 
-export function QuestCard({ quest, canSwap = false }: QuestCardProps) {
+export function QuestCard({ quest, canSwap = false, onSwapped }: QuestCardProps) {
   const { colors } = useTheme();
   const [reflecting, setReflecting] = useState(false);
   const [reflection, setReflection] = useState('');
-  const completeQuest = usePreviewStore((s) => s.completeQuest);
+  const complete = useCompleteQuest();
   const swapQuest = usePreviewStore((s) => s.swapQuest);
   const rerollsLeft = usePreviewStore((s) => s.rerollsLeft);
-  const showToast = useToast((s) => s.show);
   const done = quest.status === 'done';
 
   const finish = () => {
-    const result = completeQuest(quest.id, reflection);
+    complete(quest.id, reflection);
     setReflecting(false);
-    if (result.leveledUpTo) showToast(t('quests.levelUp', { level: result.leveledUpTo }));
-    else if (result.granted > 0) showToast(t('quests.toast', { xp: result.granted }));
-    else showToast(t('quests.toastCapped'));
   };
 
   return (
@@ -113,7 +111,10 @@ export function QuestCard({ quest, canSwap = false }: QuestCardProps) {
               variant="secondary"
               disabled={rerollsLeft <= 0}
               accessibilityHint={t('quests.rerollsLeft', { count: rerollsLeft })}
-              onPress={() => swapQuest(quest.id)}
+              onPress={() => {
+                const newId = swapQuest(quest.id);
+                if (newId) onSwapped?.(newId);
+              }}
             />
           ) : null}
         </View>

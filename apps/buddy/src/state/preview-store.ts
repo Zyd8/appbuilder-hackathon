@@ -10,7 +10,6 @@ import {
   PREVIEW_CHAT,
   PREVIEW_NOTES,
   PREVIEW_PROFILE,
-  PREVIEW_TASKS,
   previewDailyQuests,
   previewSideQuests,
   previewWeeklyQuest,
@@ -33,8 +32,9 @@ import type {
   OnboardingAnswer,
   PlayerProfile,
   Quest,
-  Task,
 } from '@/domain/types';
+import { applyOrder } from '@/domain/reorder';
+import { cleanNoteBody } from '@/domain/notes';
 import { grantXp, levelFromTotalXp } from '@/domain/xp';
 import { t } from '@/i18n';
 import { loadCachedProfile } from '@/lib/account-storage';
@@ -63,7 +63,6 @@ interface PreviewState {
   sideQuests: Quest[];
   history: Quest[];
   checkIn?: CheckIn;
-  tasks: Task[];
   notes: Note[];
   chat: ChatMessage[];
   buddyTyping: boolean;
@@ -78,10 +77,14 @@ interface PreviewState {
   setAnswer: (questionId: string, answer: OnboardingAnswer | undefined) => void;
   finishOnboarding: () => void;
   completeQuest: (questId: string, reflection?: string) => CompletionResult;
-  swapQuest: (questId: string) => void;
+  /** Swap a daily quest for a new one. Returns the new quest's id, or undefined if nothing changed. */
+  swapQuest: (questId: string) => string | undefined;
+  /** Put today's daily quests in the order of `ids` (drag to reorder). */
+  reorderDailyQuests: (ids: string[]) => void;
   saveCheckIn: (checkIn: Omit<CheckIn, 'date'>) => void;
-  toggleTask: (taskId: string) => void;
-  addNote: (body: string) => void;
+  toggleNote: (noteId: string) => void;
+  /** Add a note (newest first). `dueToday` puts it on the Today tab. Blank input is ignored. */
+  addNote: (body: string, options?: { dueToday?: boolean }) => void;
   sendChat: (text: string) => void;
   setAllowPhysical: (allow: boolean) => void;
   reset: () => void;
@@ -99,7 +102,6 @@ function initialState() {
     sideQuests: previewSideQuests(),
     history: [],
     checkIn: undefined,
-    tasks: PREVIEW_TASKS,
     notes: PREVIEW_NOTES,
     chat: PREVIEW_CHAT,
     buddyTyping: false,
@@ -197,9 +199,9 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
 
   swapQuest: (questId) => {
     const s = get();
-    if (s.rerollsLeft <= 0) return;
+    if (s.rerollsLeft <= 0) return undefined;
     const current = s.dailyQuests.find((q) => q.id === questId);
-    if (!current || current.status === 'done') return;
+    if (!current || current.status === 'done') return undefined;
 
     const inUse = new Set(s.dailyQuests.map((q) => q.templateId));
     const candidates = QUEST_LIBRARY.filter(
@@ -207,26 +209,35 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
     );
     const sameArea = candidates.filter((q) => q.area === current.area);
     const pool = sameArea.length > 0 ? sameArea : candidates;
-    if (pool.length === 0) return;
+    if (pool.length === 0) return undefined;
 
     const next = questFromTemplate(pool[Math.floor(Math.random() * pool.length)], 'daily', current.why);
     set({
       dailyQuests: s.dailyQuests.map((q) => (q.id === questId ? next : q)),
       rerollsLeft: s.rerollsLeft - 1,
     });
+    return next.id;
   },
+
+  reorderDailyQuests: (ids) => set((s) => ({ dailyQuests: applyOrder(s.dailyQuests, ids) })),
 
   saveCheckIn: (checkIn) => set({ checkIn: { ...checkIn, date: todayIso() } }),
 
-  toggleTask: (taskId) =>
-    set((s) => ({ tasks: s.tasks.map((task) => (task.id === taskId ? { ...task, done: !task.done } : task)) })),
+  toggleNote: (noteId) =>
+    set((s) => ({ notes: s.notes.map((note) => (note.id === noteId ? { ...note, done: !note.done } : note)) })),
 
-  addNote: (body) => {
-    const trimmed = body.trim();
-    if (!trimmed) return;
-    set((s) => ({
-      notes: [{ id: localId('note'), body: trimmed, createdAt: new Date().toISOString() }, ...s.notes],
-    }));
+  addNote: (body, options) => {
+    const clean = cleanNoteBody(body);
+    if (!clean) return;
+    const note: Note = {
+      id: localId('note'),
+      body: clean,
+      createdAt: new Date().toISOString(),
+      priority: 'normal',
+      done: false,
+      due: options?.dueToday ? todayIso() : undefined,
+    };
+    set((s) => ({ notes: [note, ...s.notes] }));
   },
 
   sendChat: (text) => {
