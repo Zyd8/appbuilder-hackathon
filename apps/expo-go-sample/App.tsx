@@ -5,13 +5,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  SafeAreaView,
   StyleSheet,
   StatusBar,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { guides, checklistItems } from './src/fixtures';
 import { searchGuides } from './src/retrieval';
 import { ChatMessage, loadState, saveState } from './src/storage';
@@ -27,11 +27,6 @@ const defaultModelPath = Platform.OS === 'android'
   : '';
 
 export default function App() {
-  return <SafeAreaProvider><PocketOpsChat /></SafeAreaProvider>;
-}
-
-function PocketOpsChat() {
-  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState('');
   const [modelPath, setModelPath] = useState(defaultModelPath);
@@ -88,9 +83,9 @@ function PocketOpsChat() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.paper} translucent={false} />
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={insets.top}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 0}>
         <View style={styles.header}>
           <View><Text style={styles.eyebrow}>ON-DEVICE CHAT</Text><Text style={styles.title}>PocketOps</Text></View>
           <View style={styles.nativePill}><View style={styles.dot} /><Text style={styles.pillText}>NATIVE</Text></View>
@@ -116,7 +111,7 @@ function PocketOpsChat() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.paper }, flex: { flex: 1 },
+  safe: { flex: 1, backgroundColor: colors.paper, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 0 }, flex: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
   eyebrow: { color: colors.green, fontSize: 10, fontWeight: '900', letterSpacing: 1.5 }, title: { color: colors.ink, fontSize: 34, fontWeight: '900', letterSpacing: -1.2 },
   nativePill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.mint, borderRadius: 20, paddingHorizontal: 11, paddingVertical: 8 }, dot: { width: 7, height: 7, borderRadius: 7, backgroundColor: colors.green }, pillText: { color: colors.green, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
