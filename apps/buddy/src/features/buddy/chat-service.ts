@@ -4,6 +4,11 @@ import { mediaUrisFor } from './prompt-builder';
 import { normalizeAssistantOutput } from './response-normalizer';
 import type { ChatAttachment } from './types';
 
+export {
+  getBuddyChatController, releaseBuddyChatController, chatHistory,
+  type BuddyChatController, type BuddyChatStart, type BuddyChatResult,
+} from './buddy-chat-controller';
+
 export type GenerateInput = {
   modelId: string;
   /** Kept for the Phase-1 caller; model paths are resolved and verified by AIEngine. */

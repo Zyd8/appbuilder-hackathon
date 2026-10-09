@@ -16,6 +16,8 @@ const MAX_CALLS = 6;
 /** A bounded, single-turn model/tool exchange. The model never executes a tool itself. */
 export class AgentLoop {
   private prompt = '';
+  private basePrompt = '';
+  private promptResults: string[] = [];
   private calls = 0;
   private results: ToolResult<unknown>[] = [];
   private active = false;
@@ -28,7 +30,9 @@ export class AgentLoop {
   async start(prompt: string, signal?: AbortSignal): Promise<AgentTurnResult> {
     if (this.active) return { state: 'failed', error: 'A turn is already active', toolResults: [...this.results] };
     this.active = true;
+    this.basePrompt = prompt;
     this.prompt = prompt;
+    this.promptResults = [];
     this.calls = 0;
     this.results = [];
     return this.advance(signal);
@@ -51,9 +55,16 @@ export class AgentLoop {
 
   private addResult(result: ToolResult<unknown>): void {
     this.results.push(result);
-    // Serialized data is bounded by tool-result.ts. Mark it as untrusted for prompt assembly.
-    const encoded = JSON.stringify(result).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
-    this.prompt += `\n<untrusted_tool_result>\n${encoded}\n</untrusted_tool_result>`;
+    // Keep the model-visible continuation within the 4096-token context estimate.
+    // Full app-observed results stay in `results`; older model-visible results are omitted.
+    let encoded = JSON.stringify(result);
+    if (encoded.length > 1500) encoded = JSON.stringify({ ...result,
+      data: { omitted: 'Large tool result; request a narrower read if needed' } });
+    encoded = encoded.replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+    this.promptResults.push(`\n<untrusted_tool_result>\n${encoded}\n</untrusted_tool_result>`);
+    while (this.promptResults.length && this.basePrompt.length + this.promptResults.join('').length > 10_000)
+      this.promptResults.shift();
+    this.prompt = this.basePrompt + this.promptResults.join('');
   }
 
   private failed(error: string): AgentTurnResult {
