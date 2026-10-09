@@ -1,8 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
 import { t } from '@/i18n';
 import { radius, spacing } from '@/theme/tokens';
@@ -19,6 +19,15 @@ type SheetProps = {
   footer?: ReactNode;
 };
 
+const isIOS = Platform.OS === 'ios';
+
+/**
+ * On iOS a `fitToContents` sheet already adds the home-indicator inset below its content, so
+ * padding for it here too leaves an empty band at the bottom. Android's sheet does not, so the
+ * actions would sit under the navigation bar without it.
+ */
+const bottomEdges: Edge[] = isIOS ? [] : ['bottom'];
+
 /**
  * Body of a sheet route (`halfSheet` in `app/_layout.tsx`, `sheetAllowedDetents: 'fitToContents'`).
  * The sheet is as tall as this content, so nothing here may use `flex: 1`. Native headers don't
@@ -28,7 +37,7 @@ export function Sheet({ title, eyebrow, children, footer }: SheetProps) {
   const { colors } = useTheme();
 
   return (
-    <SafeAreaView edges={['bottom']} style={{ backgroundColor: colors.background }}>
+    <SafeAreaView edges={bottomEdges} style={{ backgroundColor: colors.background }}>
       <View style={styles.grabberWrap}>
         <View style={[styles.grabber, { backgroundColor: colors.border }]} />
       </View>
@@ -57,6 +66,9 @@ export function Sheet({ title, eyebrow, children, footer }: SheetProps) {
       <View style={styles.body}>{children}</View>
 
       {footer ? <View style={styles.footer}>{footer}</View> : null}
+
+      {/* iOS leaves that inset outside the screen view, unpainted (a dark band), so fill it. */}
+      {isIOS ? <View pointerEvents="none" style={[styles.bottomFill, { backgroundColor: colors.background }]} /> : null}
     </SafeAreaView>
   );
 }
@@ -76,4 +88,6 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.8 },
   body: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.lg },
   footer: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.lg, gap: spacing.sm },
+  // Taller than any home-indicator inset; the sheet's rounded corners clip the rest.
+  bottomFill: { position: 'absolute', left: 0, right: 0, top: '100%', height: 120 },
 });
