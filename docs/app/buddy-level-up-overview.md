@@ -139,7 +139,9 @@ Guardrails:
 - No quest should depend on a specific diagnosis or give medical or legal advice.
 - Difficulty adapts to the user's energy from the check-in: low energy gives easier quests, not zero quests.
 
-**Completion:** simple tap, plus an optional 1–2 line reflection. No photo proof required (privacy). Some quests include a built-in timer or checklist. Honor system by default; XP is capped per day so it is not worth gaming.
+**Completion:** tap **Complete**, add a **photo from the library** (required), plus an optional 1–2 line reflection, then **Finish quest**. Some quests include a built-in timer or checklist. XP is capped per day so it is not worth gaming.
+
+**Quest photo (UI built, not wired up):** the photo step opens the system photo library (`expo-image-picker`, no camera) and shows a thumbnail with Change and Remove. **Finish quest** stays disabled until a photo is added (`canSubmitQuest` in `domain/quest-completion.ts`). The photo is only held in the open sheet: it is **not saved, uploaded, or checked** by AI, and the sheet says so ("Your photo stays on this phone and isn't saved yet"). Still to decide and build: where the photo is stored, whether on-device AI checks it against the quest, and whether it ever leaves the phone (see section 17). Any cloud upload needs a decision record first, because the cloud currently holds no user photos.
 
 **Reroll and control:** the user can swap a quest (limited rerolls per day), mark "too easy / too hard / not relevant", or ban a quest type. This feedback is stored locally and shapes future quests.
 
@@ -361,7 +363,7 @@ A narrow slice that shows the whole idea end to end, fully offline:
 1. **Onboarding:** 12–15 questions (tap-based plus one free-text).
 2. **On-device analysis:** Player Profile with 6 stats, 2 strengths, 2 growth areas, a title, and the reasoning shown.
 3. **Daily Quest Board:** 3 personalized quests from the curated library (about 60 quests for the MVP) with AI personalization of wording and a "why this quest" line.
-4. **Complete a quest:** tap, optional one-line reflection, XP gain, stat growth animation, level-up moment.
+4. **Complete a quest:** tap, add a photo from the library (required; UI only, not saved yet), optional one-line reflection, XP gain, stat growth animation, level-up moment.
 5. **Check-in that adapts tomorrow's quests** (energy changes difficulty).
 6. **Offline proof:** a visible "Running 100% on your device. No internet used" indicator, and a demo where airplane mode stays on.
 7. **Ask Buddy (minimal):** chat that answers using the player's profile and active quests.
@@ -417,3 +419,4 @@ Explicitly cut from the MVP: widgets, live news and weather, story cards, weekly
 6. **Monetization (post-hackathon):** free, one-time purchase, or premium cosmetics and arcs?
 7. **Native Google sign-in:** when do we switch from the browser flow to `@react-native-google-signin` + `signInWithIdToken`? This needs a dev build and Android/iOS client IDs (`docs/todo/001-native-google-signin.md`).
 8. **Account deletion:** sign-out keeps the `profiles` row. How does a user delete their account and cloud data (Phase 7 export/delete)?
+9. **Quest photos:** a photo is now required to finish a quest (UI only, section 3.3). Where is it stored (an app-private copy on the device, or only a reference to the library photo)? Does on-device AI check it against the quest, and what happens if the check fails or the model is not downloaded? Does it ever go to the cloud or onto a share card? Are some quests (for example "write three things in your head") exempt? And should the camera be an option as well as the library?

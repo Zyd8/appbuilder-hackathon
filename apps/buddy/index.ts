@@ -1,3 +1,7 @@
+// Must stay the first import: it boots Expo (metro runtime, then `expo`/`expo-asset`) in the order the
+// native runtime expects. Loading `expo` earlier fails with "Cannot find native module 'ExpoAsset'".
+import 'expo-router/entry';
+
 import { Platform } from 'react-native';
 
 import { hasAndroidWidgetModule, hasIosWidgetModule } from './src/widgets/native-support';
@@ -17,5 +21,3 @@ if (Platform.OS === 'ios' && hasIosWidgetModule()) {
 
   initializeBuddyWidget();
 }
-
-import 'expo-router/entry';
