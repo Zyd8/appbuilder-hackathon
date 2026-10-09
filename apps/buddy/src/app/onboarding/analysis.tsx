@@ -2,9 +2,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 
 import { AppText } from '@/components/app-text';
+import { analyzeProfile } from '@/domain/profile-analysis';
 import { BuddyMascot } from '@/components/buddy-mascot';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
@@ -24,7 +25,9 @@ const STEP_MS = 650;
 /** Phase 1 shows the synthetic preview profile. Phase 2 computes it from the answers (deterministic scoring). */
 export default function Analysis() {
   const { colors } = useTheme();
-  const profile = usePreviewStore((s) => s.profile);
+  const assessment = usePreviewStore((s) => s.assessment);
+  const reduceMotion = useReducedMotion();
+  const analysis = assessment ? analyzeProfile({ ...assessment, completedAt: assessment.completedAt ?? assessment.updatedAt }) : null;
   const finishOnboarding = usePreviewStore((s) => s.finishOnboarding);
   const [done, setDone] = useState(0);
 
@@ -35,18 +38,19 @@ export default function Analysis() {
     return () => clearTimeout(timer);
   }, [done]);
 
+  if (!analysis || analysis.warnings.includes('assessment_version_mismatch')) return <Screen edges={['top', 'bottom']}><AppText color="danger">{t('buddy.profile.error')}</AppText></Screen>;
   if (done <= STEPS.length) return <Analyzing done={done} />;
 
   return (
     <Screen edges={['top', 'bottom']}>
-      <Animated.View entering={FadeInDown.duration(450)}>
+      <Animated.View entering={reduceMotion ? FadeIn.duration(200) : FadeInDown.duration(450)}>
         <GradientPanel style={styles.hero}>
           <View style={styles.flex}>
             <AppText variant="overline" color="onPrimary" style={styles.soft}>
               {t('analysis.title').toUpperCase()}
             </AppText>
             <AppText variant="hero" color="onPrimary" accessibilityRole="header">
-              {profile.title}
+              {analysis.title}
             </AppText>
             <AppText variant="caption" color="onPrimary" style={styles.soft}>
               {t('analysis.disclaimer')}
@@ -58,17 +62,17 @@ export default function Analysis() {
         </GradientPanel>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(150).duration(450)}>
+      <Animated.View entering={reduceMotion ? FadeIn.duration(200) : FadeInDown.delay(150).duration(450)}>
         <Card style={styles.center}>
           <AppText variant="overline" color="primary" style={styles.selfStart}>
             {t('analysis.stats').toUpperCase()}
           </AppText>
-          <StatRadar stats={profile.stats} />
+          <StatRadar stats={analysis.stats} />
         </Card>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(300).duration(450)}>
-        <InsightList insights={profile.insights} />
+      <Animated.View entering={reduceMotion ? FadeIn.duration(200) : FadeInDown.delay(300).duration(450)}>
+        <InsightList insights={analysis.insights} />
       </Animated.View>
 
       <Button

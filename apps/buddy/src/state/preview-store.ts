@@ -10,8 +10,6 @@ import { create } from 'zustand';
 import { useToast } from '@/components/toast';
 import { QUEST_LIBRARY } from '@/data/quest-library';
 import {
-  PREVIEW_CHAT,
-  PREVIEW_PROFILE,
   previewDailyQuests,
   previewSideQuests,
   previewWeeklyQuest,
@@ -36,20 +34,26 @@ import type {
   Quest,
 } from '@/domain/types';
 import { applyOrder } from '@/domain/reorder';
+import { analyzeProfile } from '@/domain/profile-analysis';
 import { createNote, editNote, softDelete, toggleDone, visibleNotes } from '@/domain/notes';
 import { emptyNotesDoc, pendingCount, type NotesDoc, type StoredNote } from '@/domain/notes-sync';
 import { grantXp, levelFromTotalXp } from '@/domain/xp';
 import { pickBuddyAttachments } from '@/features/buddy/attachment-service';
-import { generateBuddyReply } from '@/features/buddy/chat-service';
-import { buildBuddyPrompt } from '@/features/buddy/prompt-builder';
+import { getBuddyChatController, releaseBuddyChatController, chatHistory, type BuddyChatResult } from '@/features/buddy/chat-service';
+import type { AIEngineReadiness } from '@/features/buddy/contracts/ai-engine';
+import type { ConfirmationDescriptor } from '@/features/buddy/contracts/tool-protocol';
+import type { MemoryDocument, MemoryDocumentName } from '@/features/buddy/memory/memory-types';
 import {
   DEFAULT_BUDDY_MODEL,
-  buddyModel,
   type BuddyModelId,
   type ChatAttachment,
 } from '@/features/buddy/types';
 import { t } from '@/i18n';
 import { loadCachedProfile } from '@/lib/account-storage';
+import { openBuddyDatabase } from '@/lib/buddy-database';
+import { ProfileRepository } from '@/lib/profile-repository';
+import { ProgressRepository } from '@/lib/progress-repository';
+import { accountNamespace } from '@/lib/repository-namespace';
 import { loadAssessment, writeAssessment } from '@/lib/assessment-storage';
 import { restoreAssessment, syncPendingAssessment } from '@/lib/assessment-sync';
 import { loadNotes, writeNotes } from '@/lib/notes-storage';
@@ -80,6 +84,7 @@ interface PreviewState {
   onboarded: boolean;
   answers: Record<string, OnboardingAnswer>;
   profile: PlayerProfile;
+  profileStatus: 'loading' | 'ready' | 'empty' | 'error';
   xpEarnedToday: number;
   rerollsLeft: number;
   dailyQuests: Quest[];
@@ -99,12 +104,17 @@ interface PreviewState {
   pendingAttachments: ChatAttachment[];
   /** Last model error, shown under the transcript. */
   chatError?: string;
+  pendingConfirmation?: ConfirmationDescriptor;
+  modelStatus: AIEngineReadiness | 'checking';
+  memoryDocuments: readonly MemoryDocument[];
+  memoryError?: string;
   allowPhysical: boolean;
 
   setAccount: (account: AccountProfile) => void;
   clearAccount: () => void;
   /** Load this account's answers, merging in the cloud copy when reachable (e.g. a new phone). */
   restoreAssessment: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
   /** Merge XP with the cloud copy (the larger total wins) and push if the device is ahead. Failures stay pending. */
   syncProgress: () => void;
   /** Push unsynced answers to Supabase. Fire-and-forget; failures stay pending for the next call. */
@@ -126,6 +136,15 @@ interface PreviewState {
   /** Back up pending notes and pull other devices' changes. Fire-and-forget; failures stay pending. */
   syncNotes: () => void;
   sendChat: (text: string) => void;
+  decideBuddyTool: (decision: 'confirm' | 'reject' | 'cancel') => Promise<void>;
+  refreshModelStatus: () => Promise<void>;
+  installBuddyModel: (confirmed: boolean) => Promise<void>;
+  retryBuddyModel: () => Promise<void>;
+  deleteBuddyModel: (confirmed: boolean) => Promise<void>;
+  loadBuddyMemory: () => Promise<void>;
+  saveBuddyMemory: (name: MemoryDocumentName, text: string, revision: string) => Promise<void>;
+  resetBuddyMemory: (name: MemoryDocumentName, revision: string) => Promise<void>;
+  deleteBuddyMemory: (name: MemoryDocumentName, revision: string) => Promise<void>;
   setModel: (modelId: BuddyModelId) => void;
   addAttachments: () => Promise<void>;
   removeAttachment: (attachmentId: string) => void;
@@ -138,7 +157,8 @@ function initialState() {
   return {
     onboarded: false,
     answers: {},
-    profile: PREVIEW_PROFILE,
+    profile: profileFor(undefined),
+    profileStatus: 'empty' as const,
     xpEarnedToday: 0,
     rerollsLeft: FREE_REROLLS_PER_DAY,
     dailyQuests: previewDailyQuests(),
@@ -146,11 +166,15 @@ function initialState() {
     sideQuests: previewSideQuests(),
     history: [],
     checkIn: undefined,
-    chat: PREVIEW_CHAT,
+    chat: [] as ChatMessage[],
     buddyTyping: false,
     selectedModelId: DEFAULT_BUDDY_MODEL,
     pendingAttachments: [],
     chatError: undefined,
+    pendingConfirmation: undefined,
+    modelStatus: 'checking' as const,
+    memoryDocuments: [] as readonly MemoryDocument[],
+    memoryError: undefined,
     allowPhysical: true,
   };
 }
@@ -172,29 +196,19 @@ const nowIso = () => new Date().toISOString();
 
 const cachedAccount = loadCachedProfile();
 
-/** The preview profile, with the XP saved on the device for this account (ADR-010). */
-function profileFor(userId: string | undefined) {
-  const saved = userId ? loadProgress(userId) : undefined;
-  return saved ? { ...PREVIEW_PROFILE, totalXp: Math.max(PREVIEW_PROFILE.totalXp, saved.totalXp) } : PREVIEW_PROFILE;
+/** Display projection from the completed assessment; no preview profile is treated as truth. */
+function profileFor(userId: string | undefined, assessment?: AssessmentDoc): PlayerProfile {
+  const totalXp = userId ? loadProgress(userId)?.totalXp ?? 0 : 0;
+  const analysis = assessment?.completedAt ? analyzeProfile(assessment) : null;
+  const neutral = Object.fromEntries(['focus', 'creativity', 'knowledge', 'social', 'finance', 'calm', 'health', 'organization'].map((area) => [area, 50])) as PlayerProfile['stats'];
+  return { displayName: 'Player', title: analysis && !analysis.warnings.includes('assessment_version_mismatch') ? analysis.title : 'Player',
+    totalXp, streakDays: 0, restTokens: 0, stats: analysis?.stats ?? neutral, insights: analysis?.insights ?? [] };
 }
 
 let idCounter = 0;
 function localId(prefix: string): string {
   idCounter += 1;
   return `${prefix}-${Date.now()}-${idCounter}`;
-}
-
-/** Compact local context handed to the on-device model. No network, no hidden fields. */
-function localBuddyContext(state: { profile: PlayerProfile; dailyQuests: Quest[]; notes: Note[] }): string[] {
-  const openNotes = state.notes
-    .filter((note) => !note.done)
-    .slice(0, 5)
-    .map((note) => note.body);
-  return [
-    `Player: ${state.profile.displayName} (${state.profile.title})`,
-    `Today's quests: ${state.dailyQuests.map((quest) => quest.title).join(', ') || 'none'}`,
-    `Open notes: ${openNotes.join(' | ') || 'none'}`,
-  ];
 }
 
 /**
@@ -222,30 +236,65 @@ function changeNote(noteId: string, change: (note: StoredNote, now: string) => S
 export const usePreviewStore = create<PreviewState>()((set, get) => ({
   ...initialState(),
   account: cachedAccount,
-  profile: profileFor(cachedAccount?.id),
+  profile: profileFor(cachedAccount?.id, cachedAccount ? loadAssessment(cachedAccount.id) : undefined),
+  profileStatus: cachedAccount && loadAssessment(cachedAccount.id)?.completedAt ? 'ready' : 'empty',
   ...assessmentState(cachedAccount ? loadAssessment(cachedAccount.id) : undefined),
   ...loadedNotesState(cachedAccount ? loadNotes(cachedAccount.id) : undefined),
 
-  setAccount: (account) =>
+  setAccount: (account) => {
+    const previous = get().account?.id;
+    if (previous && previous !== account.id) void releaseBuddyChatController(previous);
     set((s) =>
       s.account?.id === account.id
         ? { account }
         : {
             account,
-            profile: profileFor(account.id),
+            profile: profileFor(account.id, loadAssessment(account.id)),
+            profileStatus: loadAssessment(account.id)?.completedAt ? 'ready' : 'empty',
             ...assessmentState(loadAssessment(account.id)),
             ...loadedNotesState(loadNotes(account.id)),
           },
-    ),
+    );
+    void get().refreshModelStatus();
+    void get().refreshProfile();
+  },
 
-  clearAccount: () =>
-    set({ ...initialState(), ...loadedNotesState(undefined), account: undefined, assessment: undefined }),
+  clearAccount: () => {
+    const previous = get().account?.id;
+    if (previous) void releaseBuddyChatController(previous);
+    set({ ...initialState(), ...loadedNotesState(undefined), account: undefined, assessment: undefined });
+  },
 
   restoreAssessment: async () => {
     const userId = get().account?.id;
     if (!userId) return;
     const doc = await restoreAssessment(userId);
-    if (get().account?.id === userId) set(assessmentState(doc));
+    if (get().account?.id === userId) { set(assessmentState(doc)); await get().refreshProfile(); }
+  },
+
+  refreshProfile: async () => {
+    const userId = get().account?.id;
+    if (!userId) { set({ profileStatus: 'empty' }); return; }
+    const assessment = get().assessment;
+    if (!assessment?.completedAt) { set({ profileStatus: 'empty', profile: profileFor(userId) }); return; }
+    set({ profileStatus: 'loading' });
+    let db: Awaited<ReturnType<typeof openBuddyDatabase>> | undefined;
+    try {
+      db = await openBuddyDatabase();
+      const namespace = accountNamespace(userId);
+      const repository = new ProfileRepository(db, namespace);
+      const analysis = analyzeProfile(assessment);
+      if (analysis.warnings.includes('assessment_version_mismatch')) throw new Error('Assessment version changed');
+      await repository.save(analysis);
+      const saved = await repository.read();
+      if (!saved) throw new Error('Profile was not saved');
+      const progress = await new ProgressRepository(db, namespace).hydrate(nowIso());
+      if (get().account?.id === userId) set({ profileStatus: 'ready', profile: {
+        displayName: get().account?.displayName || 'Player', title: saved.title,
+        stats: saved.stats, insights: saved.insights, totalXp: progress.doc.totalXp, streakDays: 0, restTokens: 0,
+      } });
+    } catch { if (get().account?.id === userId) set({ profileStatus: 'error' }); }
+    finally { await db?.closeAsync(); }
   },
 
   syncProgress: () => {
@@ -286,7 +335,8 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
     if (!account) return set({ onboarded: true });
     const doc = markCompleted(assessment ?? emptyAssessment(account.id, nowIso()), nowIso());
     writeAssessment(doc);
-    set(assessmentState(doc));
+    set({ ...assessmentState(doc), profile: profileFor(account.id, doc), profileStatus: 'loading' });
+    void get().refreshProfile();
     get().syncAssessment();
   },
 
@@ -379,70 +429,111 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
 
   sendChat: (text) => {
     const trimmed = text.trim();
-    if (!trimmed || get().buddyTyping) return;
-
     const state = get();
-    const model = buddyModel(state.selectedModelId);
+    if (!trimmed || state.buddyTyping || state.pendingConfirmation) return;
     const staged = state.pendingAttachments;
-    const userMessage: ChatMessage = {
-      id: localId('msg'),
-      role: 'user',
-      text: trimmed,
-      attachments: staged.length ? staged : undefined,
-      createdAt: new Date().toISOString(),
-    };
+    const userMessage: ChatMessage = { id: localId('msg'), role: 'user', text: trimmed,
+      attachments: staged.length ? staged : undefined, createdAt: nowIso() };
     const history = [...state.chat, userMessage];
     set({ chat: history, buddyTyping: true, pendingAttachments: [], chatError: undefined });
-
-    const prompt = buildBuddyPrompt(
-      history.map((message) => ({ role: message.role, text: message.text, attachments: message.attachments })),
-      localBuddyContext(get()),
-    );
-
-    void generateBuddyReply({
-      modelId: model.id,
-      modelPath: model.path,
-      mmprojPath: model.mmprojPath,
-      prompt,
-      attachments: staged,
-    })
-      .then((reply) => {
-        set((current) => ({
-          buddyTyping: false,
-          chat: [
-            ...current.chat,
-            {
-              id: localId('msg'),
-              role: 'buddy',
-              text: reply,
-              modelId: model.id,
-              generationState: 'complete',
-              createdAt: new Date().toISOString(),
-            },
-          ],
-        }));
+    const userId = state.account?.id;
+    if (!userId) {
+      set({ buddyTyping: false, chatError: 'Sign in to use local Buddy tools.' });
+      return;
+    }
+    void getBuddyChatController(userId)
+      .then((controller) => controller.start({ modelId: state.selectedModelId, history: chatHistory(history), localContext: [] }))
+      .then((result) => {
+        if (get().account?.id === userId) applyBuddyResult(result, state.selectedModelId, set, get);
       })
-      .catch((cause: unknown) => {
-        const message = cause instanceof Error ? cause.message : 'Buddy could not run the on-device model.';
-        set((current) => ({
-          buddyTyping: false,
-          chatError: message,
-          chat: [
-            ...current.chat,
-            {
-              id: localId('msg'),
-              role: 'buddy',
-              text: message,
-              modelId: model.id,
-              generationState: 'failed',
-              createdAt: new Date().toISOString(),
-            },
-          ],
-        }));
+      .catch(() => {
+        if (get().account?.id === userId) set({ buddyTyping: false, chatError: 'Buddy could not open local data.' });
       });
   },
 
-  setModel: (modelId) => set({ selectedModelId: modelId, chatError: undefined }),
+  decideBuddyTool: async (decision) => {
+    const pending = get().pendingConfirmation;
+    const userId = get().account?.id;
+    if (!pending || !userId || get().buddyTyping) return;
+    set({ buddyTyping: true });
+    try {
+      const result = await (await getBuddyChatController(userId)).decide(pending.callId, decision);
+      if (get().account?.id === userId) {
+        applyBuddyResult(result, get().selectedModelId, set, get);
+        if (decision === 'confirm' && result.state === 'complete') {
+          const doc = loadNotes(userId);
+          set({ ...loadedNotesState(doc) });
+          scheduleNotesSync(() => get().syncNotes());
+        }
+      }
+    } catch {
+      if (get().account?.id === userId) set({ buddyTyping: false, pendingConfirmation: undefined, chatError: 'Buddy could not finish the local action.' });
+    }
+  },
+
+  refreshModelStatus: async () => {
+    const userId = get().account?.id;
+    const modelId = get().selectedModelId;
+    set({ modelStatus: 'checking' });
+    if (!userId) return;
+    try {
+      const status = await (await getBuddyChatController(userId)).modelStatus(modelId);
+      if (get().account?.id === userId && get().selectedModelId === modelId) set({ modelStatus: status });
+    } catch { if (get().account?.id === userId) set({ modelStatus: 'error' }); }
+  },
+
+  installBuddyModel: async (confirmed) => {
+    const userId = get().account?.id;
+    if (!userId || !confirmed) return;
+    const modelId = get().selectedModelId;
+    set({ modelStatus: 'downloading', chatError: undefined });
+    try { await (await getBuddyChatController(userId)).installModel(modelId, true, confirmed); }
+    catch { if (get().account?.id === userId) set({ chatError: 'Model installation failed. Check storage and try again.' }); }
+    if (get().account?.id === userId) await get().refreshModelStatus();
+  },
+  retryBuddyModel: async () => {
+    const userId = get().account?.id;
+    if (!userId) return;
+    try { (await getBuddyChatController(userId)).retryModel(get().selectedModelId); }
+    catch { set({ chatError: 'Could not retry model installation.' }); }
+    await get().refreshModelStatus();
+  },
+  deleteBuddyModel: async (confirmed) => {
+    const userId = get().account?.id;
+    if (!userId || !confirmed) return;
+    try { await (await getBuddyChatController(userId)).deleteModel(get().selectedModelId, confirmed); }
+    catch { set({ chatError: 'Could not remove the model.' }); }
+    await get().refreshModelStatus();
+  },
+
+  loadBuddyMemory: async () => {
+    const userId = get().account?.id;
+    if (!userId) return;
+    try {
+      const documents = await (await getBuddyChatController(userId)).memory.readAll();
+      if (get().account?.id === userId) set({ memoryDocuments: documents, memoryError: undefined });
+    } catch { if (get().account?.id === userId) set({ memoryError: 'Could not load local memory.' }); }
+  },
+  saveBuddyMemory: async (name, text, revision) => {
+    const userId = get().account?.id;
+    if (!userId) throw new Error('Sign in first');
+    await (await getBuddyChatController(userId)).memory.save(name, text, revision);
+    await get().loadBuddyMemory();
+  },
+  resetBuddyMemory: async (name, revision) => {
+    const userId = get().account?.id;
+    if (!userId) throw new Error('Sign in first');
+    await (await getBuddyChatController(userId)).memory.reset(name, revision);
+    await get().loadBuddyMemory();
+  },
+  deleteBuddyMemory: async (name, revision) => {
+    const userId = get().account?.id;
+    if (!userId) throw new Error('Sign in first');
+    await (await getBuddyChatController(userId)).memory.delete(name, revision);
+    await get().loadBuddyMemory();
+  },
+
+  setModel: (modelId) => { set({ selectedModelId: modelId, chatError: undefined, modelStatus: 'checking' }); void get().refreshModelStatus(); },
 
   addAttachments: async () => {
     const picked = await pickBuddyAttachments();
@@ -462,6 +553,8 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
   setAllowPhysical: (allow) => set({ allowPhysical: allow }),
 
   reset: () => {
+    const userId = get().account?.id;
+    if (userId) void releaseBuddyChatController(userId);
     const { assessment } = get();
     if (!assessment) return set(initialState());
     const doc = resetAssessment(assessment, nowIso());
@@ -470,3 +563,18 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
     get().syncAssessment();
   },
 }));
+
+function applyBuddyResult(
+  result: BuddyChatResult, modelId: BuddyModelId,
+  set: typeof usePreviewStore.setState, get: typeof usePreviewStore.getState,
+): void {
+  if (result.state === 'pending') {
+    set({ buddyTyping: false, pendingConfirmation: result.confirmation, chatError: undefined });
+    return;
+  }
+  const message: ChatMessage = { id: localId('msg'), role: 'buddy', text: result.answer,
+    contextUsed: result.summary, modelId, generationState: result.state === 'complete' ? 'complete' : result.state === 'stopped' ? 'stopped' : 'failed', createdAt: nowIso() };
+  set({ buddyTyping: false, pendingConfirmation: undefined,
+    chatError: result.state === 'failed' ? result.error ?? result.answer : undefined,
+    chat: [...get().chat, message] });
+}

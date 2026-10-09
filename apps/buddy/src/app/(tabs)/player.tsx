@@ -22,10 +22,15 @@ export default function Player() {
   const reduceMotion = useReducedMotion();
   const account = usePreviewStore((s) => s.account);
   const profile = usePreviewStore((s) => s.profile);
+  const profileStatus = usePreviewStore((s) => s.profileStatus);
   const history = usePreviewStore((s) => s.history);
   const level = levelFromTotalXp(profile.totalXp);
   const name = account?.displayName?.trim() || profile.displayName;
   const rise = (step: number) => (reduceMotion ? FadeIn.duration(200) : FadeInDown.delay(150 * step).duration(450));
+
+  if (profileStatus !== 'ready') return <Screen><AppText accessibilityLiveRegion="polite" color={profileStatus === 'error' ? 'danger' : 'textMuted'}>
+    {t(profileStatus === 'error' ? 'buddy.profile.error' : profileStatus === 'loading' ? 'buddy.profile.loading' : 'buddy.profile.empty')}
+  </AppText></Screen>;
 
   return (
     <Screen>

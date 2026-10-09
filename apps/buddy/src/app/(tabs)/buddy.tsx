@@ -1,9 +1,14 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Alert, findNodeHandle, FlatList, KeyboardAvoidingView, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import { AppText } from '@/components/app-text';
 import { BuddyMascot } from '@/components/buddy-mascot';
+import { BuddyResponse } from '@/components/buddy-response';
+import { BuddyToolConfirmation } from '@/components/buddy-tool-confirmation';
+import { BuddyModelStatus } from '@/components/buddy-model-status';
+import { BuddyMemorySheet } from '@/components/buddy-memory-sheet';
 import { Chip } from '@/components/chip';
 import { OnDeviceBadge } from '@/components/on-device-badge';
 import { Screen } from '@/components/screen';
@@ -18,6 +23,7 @@ const SUGGESTIONS = ['buddy.suggestion.focus', 'buddy.suggestion.stuck', 'buddy.
 
 export default function AskBuddy() {
   const { colors } = useTheme();
+  const reduceMotion = useReducedMotion();
   const chat = usePreviewStore((s) => s.chat);
   const typing = usePreviewStore((s) => s.buddyTyping);
   const sendChat = usePreviewStore((s) => s.sendChat);
@@ -28,9 +34,37 @@ export default function AskBuddy() {
   const removeAttachment = usePreviewStore((s) => s.removeAttachment);
   const chatError = usePreviewStore((s) => s.chatError);
   const clearChatError = usePreviewStore((s) => s.clearChatError);
+  const pendingConfirmation = usePreviewStore((s) => s.pendingConfirmation);
+  const decideBuddyTool = usePreviewStore((s) => s.decideBuddyTool);
+  const modelStatus = usePreviewStore((s) => s.modelStatus);
+  const refreshModelStatus = usePreviewStore((s) => s.refreshModelStatus);
+  const installBuddyModel = usePreviewStore((s) => s.installBuddyModel);
+  const retryBuddyModel = usePreviewStore((s) => s.retryBuddyModel);
+  const deleteBuddyModel = usePreviewStore((s) => s.deleteBuddyModel);
+  const memoryDocuments = usePreviewStore((s) => s.memoryDocuments);
+  const memoryError = usePreviewStore((s) => s.memoryError);
+  const loadBuddyMemory = usePreviewStore((s) => s.loadBuddyMemory);
+  const saveBuddyMemory = usePreviewStore((s) => s.saveBuddyMemory);
+  const resetBuddyMemory = usePreviewStore((s) => s.resetBuddyMemory);
+  const deleteBuddyMemory = usePreviewStore((s) => s.deleteBuddyMemory);
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const [draft, setDraft] = useState('');
+  useEffect(() => { void refreshModelStatus(); }, [refreshModelStatus]);
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const inputRef = useRef<TextInput>(null);
+  const hadConfirmation = useRef(false);
+  useEffect(() => {
+    if (pendingConfirmation) { hadConfirmation.current = true; return; }
+    if (!hadConfirmation.current) return;
+    hadConfirmation.current = false;
+    const timer = setTimeout(() => {
+      const node = typeof findNodeHandle === 'function' ? findNodeHandle(inputRef.current) : null;
+      if (node) AccessibilityInfo.setAccessibilityFocus(node);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [pendingConfirmation]);
   const attachmentsFull = pendingAttachments.length >= ATTACHMENT_LIMITS.maxPerMessage;
+  const modelControlsBusy = typing || Boolean(pendingConfirmation);
 
   const send = (text: string) => {
     sendChat(text);
@@ -56,10 +90,35 @@ export default function AskBuddy() {
               label={model.label}
               selected={model.id === selectedModelId}
               accessibilityLabel={`${model.label} (${model.sizeLabel}). ${model.note}`}
-              onPress={() => setModel(model.id)}
+              onPress={modelControlsBusy ? undefined : () => setModel(model.id)}
             />
           ))}
         </View>
+
+        <View style={styles.statusRow}>
+          <BuddyModelStatus status={modelStatus} />
+          {modelStatus === 'not-installed' ? <Pressable style={styles.memoryButton} disabled={modelControlsBusy} accessibilityState={{ disabled: modelControlsBusy }} accessibilityRole="button" accessibilityLabel={t('buddy.model.install')}
+            onPress={() => Alert.alert(t('buddy.model.install'), t('buddy.model.installConfirm', { size: BUDDY_MODEL_LIST.find((model) => model.id === selectedModelId)?.sizeLabel ?? '' }), [
+              { text: t('buddy.confirm.cancel'), style: 'cancel' },
+              { text: t('buddy.model.install'), onPress: () => void installBuddyModel(true) },
+            ])}><AppText variant="caption" color="primary">{t('buddy.model.install')}</AppText></Pressable> : null}
+          {modelStatus === 'error' || modelStatus === 'incompatible' ? <Pressable style={styles.memoryButton} disabled={modelControlsBusy} accessibilityState={{ disabled: modelControlsBusy }} accessibilityRole="button" accessibilityLabel={t('buddy.model.retry')}
+            onPress={() => void retryBuddyModel()}><AppText variant="caption" color="primary">{t('buddy.model.retry')}</AppText></Pressable> : null}
+          {modelStatus === 'ready' ? <Pressable style={styles.memoryButton} disabled={modelControlsBusy} accessibilityState={{ disabled: modelControlsBusy }} accessibilityRole="button" accessibilityLabel={t('buddy.model.remove')}
+            onPress={() => Alert.alert(t('buddy.model.remove'), t('buddy.model.removeConfirm'), [
+              { text: t('buddy.confirm.cancel'), style: 'cancel' },
+              { text: t('buddy.model.remove'), style: 'destructive', onPress: () => void deleteBuddyModel(true) },
+            ])}><AppText variant="caption" color="danger">{t('buddy.model.remove')}</AppText></Pressable> : null}
+          <Pressable style={styles.memoryButton} accessibilityRole="button" accessibilityLabel={t('buddy.memory.open')} onPress={() => { setMemoryOpen((open) => !open); void loadBuddyMemory(); }}>
+            <AppText variant="caption" color="primary">{t('buddy.memory.open')}</AppText>
+          </Pressable>
+        </View>
+
+        {memoryOpen ? <View style={styles.memoryPanel}>
+          {memoryError ? <AppText color="danger">{memoryError}</AppText> : null}
+          {memoryDocuments.length ? <BuddyMemorySheet documents={memoryDocuments} onSave={saveBuddyMemory} onReset={resetBuddyMemory} onDelete={deleteBuddyMemory} />
+            : <AppText color="textMuted">{t('buddy.memory.loading')}</AppText>}
+        </View> : null}
 
         <FlatList
           ref={listRef}
@@ -67,7 +126,7 @@ export default function AskBuddy() {
           keyExtractor={(m) => m.id}
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="handled"
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: !reduceMotion })}
           ListEmptyComponent={
             <View style={styles.empty}>
               <BuddyMascot mood="happy" size={96} />
@@ -90,6 +149,8 @@ export default function AskBuddy() {
             ) : null
           }
         />
+
+        {pendingConfirmation ? <BuddyToolConfirmation confirmation={pendingConfirmation} busy={typing} onDecide={(decision) => void decideBuddyTool(decision)} /> : null}
 
         {chatError ? (
           <Pressable
@@ -136,12 +197,13 @@ export default function AskBuddy() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('buddy.attach')}
-            disabled={typing || attachmentsFull}
+            disabled={typing || attachmentsFull || Boolean(pendingConfirmation)}
             onPress={() => void addAttachments()}
             style={[styles.attach, { borderColor: colors.border, opacity: typing || attachmentsFull ? 0.4 : 1 }]}>
             <Ionicons name="attach" size={22} color={colors.text} />
           </Pressable>
           <TextInput
+            ref={inputRef}
             value={draft}
             onChangeText={setDraft}
             placeholder={t('buddy.placeholder')}
@@ -154,7 +216,7 @@ export default function AskBuddy() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('buddy.send')}
-            disabled={!draft.trim() || typing}
+            disabled={!draft.trim() || typing || Boolean(pendingConfirmation)}
             onPress={() => send(draft)}
             style={[styles.send, { backgroundColor: colors.primary, opacity: !draft.trim() || typing ? 0.4 : 1 }]}>
             <Ionicons name="arrow-up" size={22} color={colors.onPrimary} />
@@ -184,7 +246,8 @@ function Bubble({ message }: { message: ChatMessage }) {
             {message.attachments.map((attachment) => attachment.name).join(' · ')}
           </AppText>
         ) : null}
-        <AppText style={{ color: mine ? colors.onPrimary : colors.text }}>{message.text}</AppText>
+        {mine ? <AppText style={{ color: colors.onPrimary }}>{message.text}</AppText>
+          : <BuddyResponse summary={message.contextUsed ?? []} answer={message.text} />}
       </View>
       {message.generationState === 'failed' ? (
         <AppText variant="caption" color="danger">
@@ -210,6 +273,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  statusRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+  memoryPanel: { maxHeight: 300, paddingHorizontal: spacing.lg },
+  memoryButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.sm },
   modelRow: {
     flexDirection: 'row',
     gap: spacing.sm,
