@@ -63,6 +63,8 @@ The app is **light-only**: white background and shades of blue taken from the lo
 | `successSoft` | `#E0F2FA` | Background behind `success` content |
 | `border` | `#D6E3FB` | Card and input borders, dividers, unselected outlines |
 | `glow` | `rgba(0, 71, 217, 0.14)` | Soft blue fill: radar shape, pulse rings, focus glow |
+| `glass` | `rgba(255, 255, 255, 0.62)` | Frosted fill laid over a blur on floating bars (the tab bar) |
+| `glassBorder` | `rgba(255, 255, 255, 0.85)` | Hairline edge of a glass bar |
 | `shadow` | `#001A66` | Shadow tint for elevated elements |
 | `danger` | `#B42318` | Errors and destructive actions **only**. The one non-blue color, kept red so errors are never missed. |
 
@@ -160,6 +162,7 @@ Use the shared component when one exists. Do not restyle it per screen.
 | `QuestRow` | `components/quest-row.tsx` | Compact 68 pt quest summary: area icon chip (a check when done), one-line title, area · minutes · XP, and a drag handle. The full quest opens in the `quest/[id]` sheet (`QuestDetails`), from Today and from the Quests tab. Quests show no rank chip, flavor line, or "why" explanation; keep them to title, instruction, area, time, and XP. |
 | `DraggableList` | `components/draggable-list.tsx` | Fixed-height list. Tap opens a row; hold for 280 ms, then drag to reorder (the lifted row scales to 1.03 with a `primary` border). Screen readers get "Move up" / "Move down" actions. Reduce Motion skips the slide and scale. |
 | `NoteList` | `components/note-list.tsx` | Checkable notes in one card (Today and Notes tabs, ADR-007): an add row on top (multi-line on Notes), round checkboxes (a `danger` ring and "High" pill for high priority) that pop when checked, a due date when it is not today, and finished notes sliding to the bottom (`LinearTransition`). Reduce Motion skips the pop and slide. |
+| `GlassTabBar` | `components/glass-tab-bar.tsx` | The bottom tab bar, two floating frosted-glass surfaces (`expo-blur` on iOS, translucent `glass` fill elsewhere) hovering above the safe area: a pill with Today, Quests, Notes, and Player, and a separate round button for Buddy to its right. Pill tabs show an icon and a label. The selected tab is a soft `glow` capsule with a filled `primary` icon and label; the others use outline icons in `textMuted`. The Buddy button is a `primary` icon that turns into a `primary` fill with an `onPrimary` icon when selected. It hides while the keyboard is open. `Screen` adds `TAB_BAR_CLEARANCE` of bottom padding on tab screens so content never sits behind it. |
 | `BuddyMascot` | `components/buddy-mascot.tsx` | Moods: `happy`, `thinking`, `celebrating`, `sleepy`. Match the mood to the state (loading → thinking, offline → sleepy, success → celebrating). |
 
 **Patterns currently local to `onboarding/questions.tsx`.** Move them to `components/` the first time another screen needs them:
