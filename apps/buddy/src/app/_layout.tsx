@@ -5,11 +5,14 @@ import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ToastHost } from '@/components/toast';
+import { todayIso } from '@/data/preview';
+import { notesForToday } from '@/domain/notes';
 import { t } from '@/i18n';
 import { retryPendingProfileSync } from '@/lib/auth';
 import { usePreviewStore } from '@/state/preview-store';
 import { radius } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
+import { snapshotFromAppData, writeWidgetSnapshot } from '@/widgets/widget-snapshot';
 
 /**
  * Rises from the bottom and is only as tall as its content (about half the screen).
@@ -36,6 +39,16 @@ export default function RootLayout() {
       .catch(() => {});
     syncAssessment();
   }, [setAccount, syncAssessment]);
+
+  useEffect(() => {
+    const syncWidgetSnapshot = () => {
+      const { profile, dailyQuests, notes } = usePreviewStore.getState();
+      writeWidgetSnapshot(snapshotFromAppData(profile, dailyQuests, notesForToday(notes, todayIso())));
+    };
+
+    syncWidgetSnapshot();
+    return usePreviewStore.subscribe(syncWidgetSnapshot);
+  }, []);
 
   const navTheme = {
     ...DefaultTheme,
