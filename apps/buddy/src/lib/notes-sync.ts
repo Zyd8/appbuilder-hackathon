@@ -17,7 +17,7 @@ import { loadNotes, writeNotes } from './notes-storage';
 import { getSupabase } from './supabase';
 
 const TABLE = 'notes';
-const COLUMNS = 'id, user_id, body, done, priority, scheduled_on, area, created_at, updated_at, deleted_at';
+const COLUMNS = 'id, user_id, body, done, priority, scheduled_on, area, position, created_at, updated_at, deleted_at';
 const BATCH = 100;
 const DEBOUNCE_MS = 1500;
 

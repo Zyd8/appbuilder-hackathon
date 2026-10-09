@@ -4,12 +4,15 @@ import {
   createNote,
   datesWithNotes,
   editNote,
+  moveNote,
   NOTE_MAX,
+  notePosition,
   notesForToday,
   notesOnDate,
   softDelete,
   sortNotes,
   toggleDone,
+  topPosition,
   visibleNotes,
 } from '../notes';
 import type { Note } from '../types';
@@ -62,6 +65,55 @@ describe('sortNotes', () => {
   it('puts open high-priority notes first and done notes last, keeping order otherwise', () => {
     const notes = [note('done', { done: true }), note('n1'), note('high', { priority: 'high' }), note('n2'), note('low', { priority: 'low' })];
     expect(sortNotes(notes).map((n) => n.id)).toEqual(['high', 'n1', 'n2', 'low', 'done']);
+  });
+
+  it('orders never-moved notes newest first, and moved notes by their position', () => {
+    const older = note('older', { createdAt: T0 });
+    const newer = note('newer', { createdAt: T1 });
+    expect(sortNotes([older, newer]).map((n) => n.id)).toEqual(['newer', 'older']);
+    const movedUp = { ...older, position: notePosition(newer) - 1 };
+    expect(sortNotes([newer, movedUp]).map((n) => n.id)).toEqual(['older', 'newer']);
+  });
+});
+
+describe('moveNote', () => {
+  const T2 = '2026-10-09T10:00:00.000Z';
+  const NOW = '2026-10-10T12:00:00.000Z';
+  // Shown newest first: c, b, a.
+  const notes = [note('a', { createdAt: T0 }), note('b', { createdAt: T1 }), note('c', { createdAt: T2 })];
+  const ordered = (list: Note[]) => sortNotes(list).map((n) => n.id);
+
+  it('moves a note between its new neighbours and changes only that note', () => {
+    const moved = moveNote(notes, 'a', ['c', 'a', 'b'], NOW);
+    expect(ordered(moved)).toEqual(['c', 'a', 'b']);
+    expect(moved.filter((n) => n.updatedAt === NOW).map((n) => n.id)).toEqual(['a']);
+  });
+
+  it('moves a note to the top and to the bottom', () => {
+    expect(ordered(moveNote(notes, 'a', ['a', 'c', 'b'], NOW))).toEqual(['a', 'c', 'b']);
+    expect(ordered(moveNote(notes, 'c', ['b', 'a', 'c'], NOW))).toEqual(['b', 'a', 'c']);
+  });
+
+  it('keeps working after many moves into the same gap', () => {
+    let list = notes;
+    for (let i = 0; i < 80; i++) {
+      // Alternate which note squeezes in next to c, halving the same gap every time.
+      const id = i % 2 ? 'a' : 'b';
+      const other = id === 'a' ? 'b' : 'a';
+      list = moveNote(list, id, ['c', id, other], NOW);
+      expect(ordered(list)).toEqual(['c', id, other]);
+    }
+  });
+
+  it('ignores ids that are not listed or not known', () => {
+    expect(moveNote(notes, 'zzz', ['zzz', 'a'], NOW)).toEqual(notes);
+    expect(moveNote(notes, 'a', ['b', 'c'], NOW)).toEqual(notes);
+  });
+
+  it('puts a new note above notes that were dragged to the top', () => {
+    const dragged = moveNote(notes, 'a', ['a', 'c', 'b'], NOW);
+    const fresh = note('fresh', { createdAt: NOW, position: topPosition(dragged, NOW) });
+    expect(ordered([...dragged, fresh])[0]).toBe('fresh');
   });
 });
 

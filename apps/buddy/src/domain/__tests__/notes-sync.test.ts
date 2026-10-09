@@ -130,6 +130,15 @@ describe('cloud rows', () => {
     expect(fromNoteRow(fromPostgres)).toEqual(note);
   });
 
+  it('round-trips the manual order, and leaves never-moved notes unset (ADR-011)', () => {
+    const moved = synced(1, { position: -1.5e12 });
+    expect(toNoteRow(moved, USER).position).toBe(-1.5e12);
+    expect(fromNoteRow(toNoteRow(moved, USER))).toEqual(moved);
+    expect(toNoteRow(synced(2), USER).position).toBeNull();
+    expect(fromNoteRow(toNoteRow(synced(2), USER))?.position).toBeUndefined();
+    expect(sanitizeStoredNotes([{ ...synced(3), position: 'top' }])[0].position).toBeUndefined();
+  });
+
   it('rejects invalid rows from untrusted input', () => {
     const row = toNoteRow(synced(1), USER);
     expect(fromNoteRow({ ...row, body: '' })).toBeUndefined();

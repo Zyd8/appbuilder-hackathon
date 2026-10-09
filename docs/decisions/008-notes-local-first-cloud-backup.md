@@ -67,8 +67,9 @@ Cycles are queued, so only one runs at a time.
 
 **Status in the UI:**
 
-- The Notes tab shows "Backing up your notes…" while a sync runs.
-- When changes are still waiting after a failed attempt, it shows a "saved on this phone" notice with a Retry button.
+- The Notes tab shows no backup status (changed 2026-10-10 at the product owner's request). A "Backing up…" line flashed in and out, and the "N changes are saved on this phone" notice with Retry crowded the list.
+- Failed backups still stay pending and retry on the next edit, launch, foreground, or sign-in. `notesSync` still tracks `pending` and `status`, so a quieter indicator can be added later.
+- The one remaining message is the conflict toast, shown when a note changed on two devices and both versions were kept.
 - It never says "synced" before the sync is confirmed.
 
 **Without a session or Supabase settings,** notes are saved on the device only.

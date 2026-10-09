@@ -30,6 +30,7 @@ export interface NoteRow {
   priority: Note['priority'];
   scheduled_on: string | null;
   area: string | null;
+  position: number | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -82,6 +83,7 @@ export function sanitizeNote(raw: unknown): Note | undefined {
   };
   if (isIsoDate(r.date)) note.date = r.date;
   if (isArea(r.area)) note.area = r.area;
+  if (typeof r.position === 'number' && Number.isFinite(r.position)) note.position = r.position;
   const deletedAt = normalizeTimestamp(r.deletedAt);
   if (deletedAt) note.deletedAt = deletedAt;
   return note;
@@ -111,6 +113,7 @@ export function toNoteRow(note: Note, userId: string): NoteRow {
     priority: note.priority,
     scheduled_on: note.date ?? null,
     area: note.area ?? null,
+    position: note.position ?? null,
     created_at: note.createdAt,
     updated_at: note.updatedAt,
     deleted_at: note.deletedAt ?? null,
@@ -126,6 +129,7 @@ export function fromNoteRow(row: NoteRow): StoredNote | undefined {
     priority: row.priority,
     date: row.scheduled_on ?? undefined,
     area: row.area ?? undefined,
+    position: row.position ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at ?? undefined,

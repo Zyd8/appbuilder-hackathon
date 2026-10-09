@@ -49,7 +49,7 @@ One-time setup in the dashboards:
 
 **Testing login in Expo Go:** run `npm run start:tunnel`, not `npx expo start`. On the LAN, Expo Go's redirect URL uses your PC's IP (`exp://192.168.x.x:8081/--/auth/callback`), and Supabase rejects redirect URLs with IP-address hosts even when they are allow-listed, so it falls back to the Site URL. The tunnel gives a hostname (`*.exp.direct`) that matches `exp://**`.
 
-The first launch needs internet to sign in. After that, the cached session lets the app open offline. Onboarding answers (ADR-006) and notes (ADR-008) are saved on the device first and backed up to the account in the background; other user content (quests, check-ins, chat) stays on the device. Notes need the `public.notes` table from `supabase/migrations/20261009180000_create_notes.sql`.
+The first launch needs internet to sign in. After that, the cached session lets the app open offline. Onboarding answers (ADR-006) and notes (ADR-008) are saved on the device first and backed up to the account in the background; other user content (quests, check-ins, chat) stays on the device. Notes need the `public.notes` table from `supabase/migrations/20261009180000_create_notes.sql` and its `position` column (drag-to-reorder, ADR-011) from `20261009232827_add_notes_position.sql`; without that column, note backups fail and stay pending.
 
 ## On-device model (Ask Buddy)
 

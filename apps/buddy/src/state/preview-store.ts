@@ -35,7 +35,7 @@ import type {
 } from '@/domain/types';
 import { applyOrder } from '@/domain/reorder';
 import { analyzeProfile } from '@/domain/profile-analysis';
-import { createNote, editNote, softDelete, toggleDone, visibleNotes } from '@/domain/notes';
+import { createNote, editNote, moveNote, softDelete, toggleDone, topPosition, visibleNotes } from '@/domain/notes';
 import { emptyNotesDoc, pendingCount, type NotesDoc, type StoredNote } from '@/domain/notes-sync';
 import { levelFromTotalXp, playerRank } from '@/domain/xp';
 import { pickBuddyAttachments } from '@/features/buddy/attachment-service';
@@ -136,6 +136,8 @@ interface PreviewState {
   /** Change a note's text and/or date. Passing `date: undefined` clears the date. */
   updateNote: (noteId: string, changes: { body?: string; date?: string }) => void;
   deleteNote: (noteId: string) => void;
+  /** Drag to reorder: put `noteId` where it is in `orderedIds` (the list as arranged). Saved and backed up. */
+  moveNote: (noteId: string, orderedIds: string[]) => void;
   /** Back up pending notes and pull other devices' changes. Fire-and-forget; failures stay pending. */
   syncNotes: () => void;
   sendChat: (text: string) => void;
@@ -469,14 +471,18 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
   toggleNote: (noteId) => changeNote(noteId, toggleDone),
 
   addNote: (body, options) => {
-    const note = createNote(randomUUID(), body, nowIso(), options?.date);
+    const now = nowIso();
+    const note = createNote(randomUUID(), body, now, options?.date);
     if (!note) return;
-    changeNotes((notes) => [{ ...note, syncedAt: null }, ...notes]);
+    // On top even if older notes were dragged above the newest ones.
+    changeNotes((notes) => [{ ...note, position: topPosition(visibleNotes(notes), now), syncedAt: null }, ...notes]);
   },
 
   updateNote: (noteId, changes) => changeNote(noteId, (note, now) => editNote(note, changes, now)),
 
   deleteNote: (noteId) => changeNote(noteId, softDelete),
+
+  moveNote: (noteId, orderedIds) => changeNotes((notes) => moveNote(notes, noteId, orderedIds, nowIso())),
 
   syncNotes: () => {
     const userId = get().account?.id;
