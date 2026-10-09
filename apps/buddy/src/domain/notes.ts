@@ -68,3 +68,8 @@ export function toggleDone<T extends Note>(note: T, now: string): T {
 export function softDelete<T extends Note>(note: T, now: string): T {
   return note.deletedAt ? note : { ...note, deletedAt: now, updatedAt: now };
 }
+
+/** Exact desired-state completion; repeated requests never toggle a note back. */
+export function setNoteDone<T extends Note>(note: T, desiredDone: boolean, now: string): T {
+  return note.done === desiredDone ? note : { ...note, done: desiredDone, updatedAt: now };
+}
