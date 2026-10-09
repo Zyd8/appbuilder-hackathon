@@ -44,3 +44,7 @@ yarn-error.*
 
 # local env files (Supabase keys live in .env.local)
 .env
+
+# Native projects (Continuous Native Generation: `npx expo prebuild` / `run:android`)
+/android
+/ios
