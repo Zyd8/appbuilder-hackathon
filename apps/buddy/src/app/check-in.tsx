@@ -21,6 +21,8 @@ export default function CheckInScreen() {
   const { colors } = useTheme();
   const saveCheckIn = usePreviewStore((s) => s.saveCheckIn);
   const existing = usePreviewStore((s) => s.checkIn);
+  const phase2Error = usePreviewStore((s) => s.phase2Error);
+  const [saving, setSaving] = useState(false);
   const [mood, setMood] = useState<Mood>(existing?.mood ?? 3);
   const [energy, setEnergy] = useState<Energy>(existing?.energy ?? 'medium');
   const [focusText, setFocusText] = useState(existing?.focusText ?? '');
@@ -33,11 +35,14 @@ export default function CheckInScreen() {
           <Button
             label={t('checkin.save')}
             icon="checkmark"
+            disabled={saving}
             onPress={() => {
-              saveCheckIn({ mood, energy, focusText: focusText.trim() || undefined });
-              router.back();
+              setSaving(true);
+              void saveCheckIn({ mood, energy, focusText: focusText.trim() || undefined })
+                .then(() => router.back()).catch(() => undefined).finally(() => setSaving(false));
             }}
           />
+          {phase2Error ? <AppText color="danger" accessibilityLiveRegion="polite">{phase2Error}</AppText> : null}
           <AppText variant="caption" color="textMuted" style={styles.center}>
             {t('checkin.privacy')}
           </AppText>

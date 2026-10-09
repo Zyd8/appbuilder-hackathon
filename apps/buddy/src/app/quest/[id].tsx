@@ -12,7 +12,7 @@ export default function QuestRoute() {
   const daily = usePreviewStore((s) => s.dailyQuests);
   const weekly = usePreviewStore((s) => s.weeklyQuest);
   const side = usePreviewStore((s) => s.sideQuests);
-  const quest = [...daily, weekly, ...side].find((q) => q.id === id);
+  const quest = [...daily, ...(weekly ? [weekly] : []), ...side].find((q) => q.id === id);
 
   if (!quest) {
     return (

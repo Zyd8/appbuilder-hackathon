@@ -35,4 +35,23 @@ export class QuestRepository {
         JSON.stringify(quest), this.namespace, quest.id, expectedRevision);
     return result.changes ? { quest, revision: expectedRevision + 1 } : null;
   }
+
+  /** Replace an offered quest and retain the rerolled row in one SQLite transaction. */
+  async reroll(oldQuest: Quest, expectedRevision: number, replacement: Quest): Promise<RevisionedQuest | null> {
+    if (!oldQuest.id || !replacement.id || oldQuest.id === replacement.id ||
+        !Number.isInteger(expectedRevision) || expectedRevision < 1) throw new Error('Invalid reroll');
+    let saved: RevisionedQuest | null = null;
+    await this.db.withExclusiveTransactionAsync(async (txn) => {
+      const updated = await txn.runAsync(
+        'UPDATE buddy_quests SET revision=revision+1,quest_json=? WHERE namespace=? AND id=? AND revision=?',
+        JSON.stringify(oldQuest), this.namespace, oldQuest.id, expectedRevision);
+      if (!updated.changes) return;
+      const inserted = await txn.runAsync(
+        'INSERT OR IGNORE INTO buddy_quests(namespace,id,revision,quest_json) VALUES (?,?,1,?)',
+        this.namespace, replacement.id, JSON.stringify(replacement));
+      if (!inserted.changes) throw new Error('Replacement quest ID already exists');
+      saved = { quest: replacement, revision: 1 };
+    });
+    return saved;
+  }
 }

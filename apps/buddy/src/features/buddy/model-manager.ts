@@ -22,6 +22,7 @@ export class ModelManager {
   private active = new Set<BuddyModelId>();
   private verifying = new Set<BuddyModelId>();
   private errors = new Set<BuddyModelId>();
+  private verifiedFiles = new Map<string, string>();
 
   constructor(private readonly download: Download = defaultDownload) {}
 
@@ -44,9 +45,9 @@ export class ModelManager {
     if (model.size !== entry.model.bytes) return 'incompatible';
     this.verifying.add(id);
     try {
-      if (!(await verifyArtifact(model, entry.model))) return 'incompatible';
+      if (!(await this.verifyOnce(model, entry.model))) return 'incompatible';
       const projector = artifactFile(entry.projector);
-      if (projector.exists && !(await verifyArtifact(projector, entry.projector))) return 'incompatible';
+      if (projector.exists && !(await this.verifyOnce(projector, entry.projector))) return 'incompatible';
       return 'ready';
     } catch {
       return 'error';
@@ -104,6 +105,7 @@ export class ModelManager {
     for (const artifact of [entry.model, entry.projector]) {
       const file = artifactFile(artifact);
       if (file.exists) file.delete();
+      this.verifiedFiles.delete(artifact.filename);
     }
     this.errors.delete(id);
   }
@@ -117,6 +119,16 @@ export class ModelManager {
     if (!(await verifyArtifact(partial, artifact))) throw new Error('Downloaded model failed checksum verification');
     if (destination.exists) destination.delete();
     partial.move(destination);
+    this.verifiedFiles.delete(artifact.filename);
+  }
+
+  private async verifyOnce(file: File, artifact: ModelArtifact): Promise<boolean> {
+    const modified = file.modificationTime;
+    const fingerprint = modified == null ? null : `${file.size}:${modified}:${artifact.sha256}`;
+    if (fingerprint && this.verifiedFiles.get(artifact.filename) === fingerprint) return true;
+    if (!await verifyArtifact(file, artifact)) return false;
+    if (fingerprint) this.verifiedFiles.set(artifact.filename, fingerprint);
+    return true;
   }
 }
 
@@ -131,6 +143,9 @@ export async function verifyArtifact(file: File, artifact: ModelArtifact): Promi
       if (!chunk.length) return false;
       digest.update(chunk);
       remaining -= chunk.length;
+      // A multi-GB model takes time to hash in JS. Let the UI render and accept input.
+      if (remaining > 0 && remaining % (8 * 1024 * 1024) < chunk.length)
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
     }
     return bytesToHex(digest.digest()) === artifact.sha256;
   } finally {

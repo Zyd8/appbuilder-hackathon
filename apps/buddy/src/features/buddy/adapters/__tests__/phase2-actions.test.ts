@@ -125,3 +125,24 @@ it('does not award XP for a done row without a verifiable opaque proof', async (
   expect(await f.progress.completion(quest.id)).toBeNull();
   await f.db.closeAsync();
 });
+
+it('rerolls a daily quest atomically and counts the limit from durable history', async () => {
+  const f = await fixture(guestNamespace('phase2-reroll'));
+  const candidates = QUEST_LIBRARY.filter((item) => item.id !== template.id).slice(0, 3);
+  const replacement = (index: number): Quest => ({ ...quest,
+    id: `quest-reroll-${index}`, templateId: candidates[index].id, area: candidates[index].area,
+    title: candidates[index].title, flavor: candidates[index].flavor,
+    instruction: candidates[index].instruction, rank: candidates[index].rank,
+    xp: RANK_XP[candidates[index].rank], estMinutes: candidates[index].estMinutes });
+  await f.actions.upsertCuratedQuest(quest, 0, boundary);
+  await expect(f.actions.rerollQuest(quest.id, 0, replacement(0), boundary))
+    .rejects.toMatchObject({ code: 'stale_revision' });
+  await f.actions.rerollQuest(quest.id, 1, replacement(0), boundary);
+  expect((await f.quests.get(quest.id))?.quest.status).toBe('rerolled');
+  expect((await f.quests.get(replacement(0).id))?.quest.status).toBe('offered');
+  await f.actions.rerollQuest(replacement(0).id, 1, replacement(1), boundary);
+  await expect(f.actions.rerollQuest(replacement(1).id, 1, replacement(2), boundary))
+    .rejects.toMatchObject({ code: 'daily_limit' });
+  expect((await f.quests.get(replacement(1).id))?.quest.status).toBe('offered');
+  await f.db.closeAsync();
+});

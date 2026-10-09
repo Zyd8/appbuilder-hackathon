@@ -33,15 +33,18 @@ export function QuestDetails({ quest, canSwap, onSwapped }: QuestDetailsProps) {
   const complete = useCompleteQuest();
   const swapQuest = usePreviewStore((s) => s.swapQuest);
   const rerollsLeft = usePreviewStore((s) => s.rerollsLeft);
+  const [swapping, setSwapping] = useState(false);
   const showToast = useToast((s) => s.show);
   const [reflecting, setReflecting] = useState(false);
   const [reflection, setReflection] = useState('');
   const [photoUri, setPhotoUri] = useState<string>();
   const [picking, setPicking] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const phase2Error = usePreviewStore((s) => s.phase2Error);
   const done = quest.status === 'done';
   const canFinish = canSubmitQuest({ photoUri, reflection });
 
-  // The photo is only held here for now: it is not saved, uploaded, or checked yet.
+  // The picked URI is held by this screen until an explicit completion saves a private proof copy.
   const choosePhoto = async () => {
     if (picking) return;
     setPicking(true);
@@ -55,11 +58,12 @@ export function QuestDetails({ quest, canSwap, onSwapped }: QuestDetailsProps) {
     }
   };
 
-  const finish = () => {
-    if (!canFinish) return;
-    complete(quest.id, reflection);
-    setReflecting(false);
-    setPhotoUri(undefined);
+  const finish = async () => {
+    if (!canFinish || !photoUri || finishing) return;
+    setFinishing(true);
+    const saved = await complete(quest.id, photoUri, reflection);
+    setFinishing(false);
+    if (saved) { setReflecting(false); setPhotoUri(undefined); }
   };
 
   let footer;
@@ -78,17 +82,18 @@ export function QuestDetails({ quest, canSwap, onSwapped }: QuestDetailsProps) {
           placeholder={t('quests.reflection.placeholder')}
           placeholderTextColor={colors.textMuted}
           maxLength={140}
-          onSubmitEditing={finish}
+          onSubmitEditing={() => void finish()}
           returnKeyType="done"
           accessibilityLabel={t('quests.reflection.placeholder')}
           style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
         />
+        {phase2Error ? <AppText color="danger" accessibilityLiveRegion="polite">{phase2Error}</AppText> : null}
         <Button
           label={t('quests.reflection.save')}
           icon="checkmark"
-          disabled={!canFinish}
+          disabled={!canFinish || finishing}
           accessibilityHint={canFinish ? undefined : t('quests.photo.needed')}
-          onPress={finish}
+          onPress={() => void finish()}
         />
       </>
     );
@@ -96,18 +101,9 @@ export function QuestDetails({ quest, canSwap, onSwapped }: QuestDetailsProps) {
     footer = (
       <>
         <Button label={t('quests.complete')} icon="checkmark" onPress={() => setReflecting(true)} />
-        {canSwap ? (
-          <Button
-            label={t('quests.swapWithCount', { count: rerollsLeft })}
-            icon="shuffle"
-            variant="ghost"
-            disabled={rerollsLeft <= 0}
-            onPress={() => {
-              const newId = swapQuest(quest.id);
-              if (newId) onSwapped(newId);
-            }}
-          />
-        ) : null}
+        {canSwap ? <Button label={t('quests.swapWithCount', { count: rerollsLeft })} icon="shuffle" variant="ghost" disabled={rerollsLeft <= 0 || swapping}
+          onPress={() => { setSwapping(true); void swapQuest(quest.id).then((newId) => { if (newId) onSwapped(newId); }).finally(() => setSwapping(false)); }} /> : null}
+
       </>
     );
   }

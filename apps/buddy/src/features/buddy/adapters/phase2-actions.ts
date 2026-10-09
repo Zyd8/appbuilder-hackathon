@@ -1,7 +1,7 @@
 import { QUEST_LIBRARY } from '@/data/quest-library';
 import { validateCheckIn } from '@/domain/check-in-service';
 import { QuestService, type QuestProofPort, type QuestState } from '@/domain/quest-service';
-import { validateQuestCandidate, type QuestBoundary } from '@/domain/quest-policy';
+import { validateQuestCandidate, validateReroll, type QuestBoundary } from '@/domain/quest-policy';
 import { ServiceError, assertLocalDate, assertTimestamp, type AtomicStore, type CommandContext, type CommandResult } from '@/domain/service-types';
 import type { CheckIn, Quest } from '@/domain/types';
 import { RANK_XP } from '@/domain/xp';
@@ -112,6 +112,44 @@ export class Phase2Actions {
     const saved = await this.quests.put({ ...current.quest, status: 'active' }, expectedRevision);
     if (!saved) throw new ServiceError('stale_revision', 'Quest changed during activation');
     return saved;
+  }
+
+  /** At most two daily rerolls, counted from durable rows for the local date. */
+  async rerollQuest(questId: string, expectedRevision: number, replacement: Quest,
+    boundary: QuestBoundary): Promise<RevisionedQuest> {
+    const current = await this.quests.get(questId);
+    if (!current || current.revision !== expectedRevision)
+      throw new ServiceError('stale_revision', 'Quest changed before reroll');
+    const rows = await this.quests.list();
+    const rerollsUsed = rows.filter((row) => row.quest.status === 'rerolled' &&
+      row.quest.offeredOn === boundary.date && row.quest.kind === 'daily').length;
+    if (current.quest.kind !== 'daily' || current.quest.offeredOn !== boundary.date ||
+        replacement.kind !== 'daily' || replacement.id === questId)
+      throw new ServiceError('invalid_transition', 'Only a current daily quest can be rerolled');
+    validateReroll(current.quest, rerollsUsed, 2);
+    const template = QUEST_LIBRARY.find((item) => item.id === replacement.templateId);
+    if (!template || replacement.source !== 'library' || replacement.status !== 'offered' ||
+        replacement.offeredOn !== boundary.date || !/^[A-Za-z0-9_.-]{1,128}$/.test(replacement.id) ||
+        replacement.area !== template.area || replacement.title !== template.title ||
+        replacement.flavor !== template.flavor || replacement.instruction !== template.instruction ||
+        replacement.rank !== template.rank || replacement.xp !== RANK_XP[template.rank] ||
+        replacement.estMinutes !== template.estMinutes || replacement.completedAt || replacement.reflection ||
+        Object.keys(replacement).some((key) => !['id', 'templateId', 'source', 'kind', 'area', 'title',
+          'flavor', 'instruction', 'rank', 'xp', 'estMinutes', 'why', 'status', 'offeredOn'].includes(key)))
+      throw new ServiceError('invalid_arguments', 'Reroll requires an unaltered curated quest');
+    const usedTemplates = rows.filter((row) => row.quest.offeredOn === boundary.date)
+      .map((row) => row.quest.templateId).filter((id): id is string => !!id);
+    if (usedTemplates.includes(template.id))
+      throw new ServiceError('invalid_transition', 'Template was already used today');
+    validateQuestCandidate(template, { ...boundary, excludedTemplateIds: usedTemplates });
+    try {
+      const saved = await this.quests.reroll({ ...current.quest, status: 'rerolled' }, expectedRevision, replacement);
+      if (!saved) throw new ServiceError('stale_revision', 'Quest changed during reroll');
+      return saved;
+    } catch (error) {
+      if (error instanceof ServiceError) throw error;
+      throw new ServiceError('storage_failure', 'Reroll could not be saved');
+    }
   }
 
   async completeQuest(input: CompleteQuestInput): Promise<CompletedQuestResult> {

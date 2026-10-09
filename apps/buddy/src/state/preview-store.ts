@@ -1,18 +1,18 @@
 /**
- * Phase 1 store. Drives the clickable UI shell with synthetic data.
- * The account (ADR-005), onboarding answers (ADR-006) and notes (ADR-008) persist on the device;
- * XP (ADR-010) is saved too and backed up;
- * everything else is still in memory and is lost on restart until Phase 2 adds SQLite.
+ * Presentation store over local assessment, notes, XP, and Phase 2 repositories.
+ * Local writes remain usable while cloud backup is unavailable.
  */
 import { randomUUID } from 'expo-crypto';
 import { create } from 'zustand';
 
 import { useToast } from '@/components/toast';
 import { QUEST_LIBRARY } from '@/data/quest-library';
+import { questCandidates } from '@/domain/quest-policy';
+import { Phase2Actions, type Phase2Snapshot } from '@/features/buddy/adapters/phase2-actions';
+import { QuestRepository } from '@/lib/quest-repository';
+import { CheckInRepository } from '@/lib/check-in-repository';
+import { QuestPhotoProofStore } from '@/lib/quest-proof-store';
 import {
-  previewDailyQuests,
-  previewSideQuests,
-  previewWeeklyQuest,
   questFromTemplate,
   todayIso,
 } from '@/data/preview';
@@ -37,7 +37,7 @@ import { applyOrder } from '@/domain/reorder';
 import { analyzeProfile } from '@/domain/profile-analysis';
 import { createNote, editNote, softDelete, toggleDone, visibleNotes } from '@/domain/notes';
 import { emptyNotesDoc, pendingCount, type NotesDoc, type StoredNote } from '@/domain/notes-sync';
-import { grantXp, levelFromTotalXp } from '@/domain/xp';
+import { levelFromTotalXp, playerRank } from '@/domain/xp';
 import { pickBuddyAttachments } from '@/features/buddy/attachment-service';
 import { getBuddyChatController, releaseBuddyChatController, chatHistory, type BuddyChatResult } from '@/features/buddy/chat-service';
 import type { AIEngineReadiness } from '@/features/buddy/contracts/ai-engine';
@@ -88,7 +88,9 @@ interface PreviewState {
   xpEarnedToday: number;
   rerollsLeft: number;
   dailyQuests: Quest[];
-  weeklyQuest: Quest;
+  weeklyQuest?: Quest;
+  phase2Status: 'loading' | 'ready' | 'empty' | 'error';
+  phase2Error?: string;
   sideQuests: Quest[];
   history: Quest[];
   checkIn?: CheckIn;
@@ -121,12 +123,13 @@ interface PreviewState {
   syncAssessment: () => void;
   setAnswer: (questionId: string, answer: OnboardingAnswer | undefined) => void;
   finishOnboarding: () => void;
-  completeQuest: (questId: string, reflection?: string) => CompletionResult;
+  completeQuest: (questId: string, photoUri: string, reflection?: string) => Promise<CompletionResult>;
+  hydratePhase2: () => Promise<void>;
   /** Swap a daily quest for a new one. Returns the new quest's id, or undefined if nothing changed. */
-  swapQuest: (questId: string) => string | undefined;
+  swapQuest: (questId: string) => Promise<string | undefined>;
   /** Put today's daily quests in the order of `ids` (drag to reorder). */
   reorderDailyQuests: (ids: string[]) => void;
-  saveCheckIn: (checkIn: Omit<CheckIn, 'date'>) => void;
+  saveCheckIn: (checkIn: Omit<CheckIn, 'date'>) => Promise<void>;
   toggleNote: (noteId: string) => void;
   /** Add a note (newest first), optionally scheduled for `date`. Blank input is ignored. */
   addNote: (body: string, options?: { date?: string }) => void;
@@ -161,9 +164,11 @@ function initialState() {
     profileStatus: 'empty' as const,
     xpEarnedToday: 0,
     rerollsLeft: FREE_REROLLS_PER_DAY,
-    dailyQuests: previewDailyQuests(),
-    weeklyQuest: previewWeeklyQuest(),
-    sideQuests: previewSideQuests(),
+    dailyQuests: [] as Quest[],
+    weeklyQuest: undefined as Quest | undefined,
+    sideQuests: [] as Quest[],
+    phase2Status: 'empty' as const,
+    phase2Error: undefined,
     history: [],
     checkIn: undefined,
     chat: [] as ChatMessage[],
@@ -237,7 +242,7 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
   ...initialState(),
   account: cachedAccount,
   profile: profileFor(cachedAccount?.id, cachedAccount ? loadAssessment(cachedAccount.id) : undefined),
-  profileStatus: cachedAccount && loadAssessment(cachedAccount.id)?.completedAt ? 'ready' : 'empty',
+  profileStatus: cachedAccount && loadAssessment(cachedAccount.id)?.completedAt ? 'loading' : 'empty',
   ...assessmentState(cachedAccount ? loadAssessment(cachedAccount.id) : undefined),
   ...loadedNotesState(cachedAccount ? loadNotes(cachedAccount.id) : undefined),
 
@@ -257,6 +262,7 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
     );
     void get().refreshModelStatus();
     void get().refreshProfile();
+    void get().hydratePhase2();
   },
 
   clearAccount: () => {
@@ -340,59 +346,125 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
     get().syncAssessment();
   },
 
-  completeQuest: (questId, reflection) => {
-    const s = get();
-    const quest = [...s.dailyQuests, s.weeklyQuest, ...s.sideQuests].find((q) => q.id === questId);
-    if (!quest || quest.status === 'done') return { granted: 0 };
-
-    const granted = grantXp(s.xpEarnedToday, quest.xp);
-    const before = levelFromTotalXp(s.profile.totalXp).level;
-    const after = levelFromTotalXp(s.profile.totalXp + granted).level;
-    const done: Quest = {
-      ...quest,
-      status: 'done',
-      completedAt: new Date().toISOString(),
-      reflection: reflection?.trim() || undefined,
-    };
-    const mark = (q: Quest) => (q.id === questId ? done : q);
-
-    set({
-      dailyQuests: s.dailyQuests.map(mark),
-      weeklyQuest: mark(s.weeklyQuest),
-      sideQuests: s.sideQuests.map(mark),
-      history: [done, ...s.history],
-      xpEarnedToday: s.xpEarnedToday + granted,
-      profile: { ...s.profile, totalXp: s.profile.totalXp + granted },
-    });
-    if (granted > 0) get().syncProgress();
-    return { granted, leveledUpTo: after > before ? after : undefined };
+  hydratePhase2: async () => {
+    const userId = get().account?.id;
+    if (!userId) { set({ phase2Status: 'empty', dailyQuests: [], weeklyQuest: undefined, sideQuests: [], history: [] }); return; }
+    set({ phase2Status: 'loading', phase2Error: undefined });
+    let db: Awaited<ReturnType<typeof openBuddyDatabase>> | undefined;
+    try {
+      db = await openBuddyDatabase();
+      const namespace = accountNamespace(userId);
+      const proof = new QuestPhotoProofStore(namespace);
+      const quests = new QuestRepository(db, namespace);
+      const actions = new Phase2Actions(quests, new CheckInRepository(db, namespace), new ProgressRepository(db, namespace), proof);
+      const date = todayIso();
+      let snapshot = await actions.hydrate(nowIso(), date);
+      const currentBoard = snapshot.board.filter((row) => row.quest.offeredOn === date);
+      const completedToday = snapshot.history.some((row) => row.quest.offeredOn === date);
+      if (currentBoard.length === 0 && !completedToday && get().account?.id === userId) {
+        const boundary = { date, maxRank: playerRank(snapshot.progress.level).rank,
+          energy: snapshot.checkIn?.checkIn.date === date ? snapshot.checkIn.checkIn.energy : 'low' as const,
+          physicalCompletedToday: snapshot.history.some((row) => row.quest.completedAt?.slice(0, 10) === date &&
+            QUEST_LIBRARY.some((item) => item.id === row.quest.templateId && item.physical)) };
+        const candidates = questCandidates(boundary).slice(0, 6);
+        for (let index = 0; index < candidates.length; index++) {
+          const kind = index < 3 ? 'daily' : index === 3 ? 'weekly' : 'side';
+          const quest = questFromTemplate(candidates[index], kind);
+          await actions.upsertCuratedQuest(quest, 0, boundary);
+        }
+        snapshot = await actions.hydrate(nowIso(), date);
+      }
+      if (get().account?.id === userId) set(phase2View(snapshot, date, get().profile.totalXp, await rerollsLeftFor(quests, date)));
+    } catch {
+      if (get().account?.id === userId) set({ phase2Status: 'error', phase2Error: 'Quest and check-in data could not be loaded.' });
+    } finally { await db?.closeAsync(); }
   },
 
-  swapQuest: (questId) => {
-    const s = get();
-    if (s.rerollsLeft <= 0) return undefined;
-    const current = s.dailyQuests.find((q) => q.id === questId);
-    if (!current || current.status === 'done') return undefined;
+  completeQuest: async (questId, photoUri, reflection) => {
+    const userId = get().account?.id;
+    if (!userId) throw new Error('Sign in before completing a quest.');
+    if (!photoUri?.trim()) throw new Error('Add a proof photo before finishing.');
+    let db: Awaited<ReturnType<typeof openBuddyDatabase>> | undefined;
+    try {
+      db = await openBuddyDatabase();
+      const namespace = accountNamespace(userId);
+      const proof = new QuestPhotoProofStore(namespace);
+      const quests = new QuestRepository(db, namespace);
+      const actions = new Phase2Actions(quests, new CheckInRepository(db, namespace), new ProgressRepository(db, namespace), proof);
+      let row = await quests.get(questId);
+      if (!row) throw new Error('Quest was not found.');
+      if (row.quest.status === 'offered') row = await actions.activateQuest(questId, row.revision);
+      const proofId = await proof.save(questId, photoUri);
+      const previousLevel = levelFromTotalXp(get().profile.totalXp).level;
+      const result = await actions.completeQuest({ questId, expectedRevision: row.revision, proofId,
+        idempotencyKey: randomUUID(), reflection, now: nowIso(), localDate: todayIso() });
+      const snapshot = await actions.hydrate(nowIso(), todayIso());
+      if (get().account?.id === userId) set(phase2View(snapshot, todayIso(), get().profile.totalXp, await rerollsLeftFor(quests, todayIso())));
+      const level = result.progress.level;
+      get().syncProgress();
+      return { granted: result.completion.grantedXp, leveledUpTo: level > previousLevel ? level : undefined };
+    } catch (error) {
+      if (get().account?.id === userId) set({ phase2Error: 'Quest could not be completed. Your photo remains on this device.' });
+      throw error;
+    } finally { await db?.closeAsync(); }
+  },
 
-    const inUse = new Set(s.dailyQuests.map((q) => q.templateId));
-    const candidates = QUEST_LIBRARY.filter(
-      (q) => !inUse.has(q.id) && (s.allowPhysical || !q.physical),
-    );
-    const sameArea = candidates.filter((q) => q.area === current.area);
-    const pool = sameArea.length > 0 ? sameArea : candidates;
-    if (pool.length === 0) return undefined;
-
-    const next = questFromTemplate(pool[Math.floor(Math.random() * pool.length)], 'daily', current.why);
-    set({
-      dailyQuests: s.dailyQuests.map((q) => (q.id === questId ? next : q)),
-      rerollsLeft: s.rerollsLeft - 1,
-    });
-    return next.id;
+  swapQuest: async (questId) => {
+    const userId = get().account?.id;
+    if (!userId) return undefined;
+    let db: Awaited<ReturnType<typeof openBuddyDatabase>> | undefined;
+    try {
+      db = await openBuddyDatabase();
+      const namespace = accountNamespace(userId);
+      const quests = new QuestRepository(db, namespace);
+      const actions = new Phase2Actions(quests, new CheckInRepository(db, namespace),
+        new ProgressRepository(db, namespace), new QuestPhotoProofStore(namespace));
+      const current = await quests.get(questId);
+      if (!current || current.quest.kind !== 'daily') return undefined;
+      const date = todayIso();
+      const snapshot = await actions.hydrate(nowIso(), date);
+      const used = (await quests.list()).filter((row) => row.quest.offeredOn === date)
+        .map((row) => row.quest.templateId).filter((id): id is string => Boolean(id));
+      const boundary = { date, maxRank: playerRank(snapshot.progress.level).rank,
+        energy: snapshot.checkIn?.checkIn.date === date ? snapshot.checkIn.checkIn.energy : 'low' as const,
+        physicalCompletedToday: snapshot.history.some((row) => row.quest.completedAt?.slice(0, 10) === date &&
+          QUEST_LIBRARY.some((item) => item.id === row.quest.templateId && item.physical)),
+        excludedTemplateIds: used };
+      const available = questCandidates(boundary);
+      const replacementTemplate = available.find((item) => item.area === current.quest.area) ?? available[0];
+      if (!replacementTemplate) throw new Error('No eligible replacement quest remains.');
+      const replacement = questFromTemplate(replacementTemplate, 'daily');
+      await actions.rerollQuest(questId, current.revision, replacement, boundary);
+      const refreshed = await actions.hydrate(nowIso(), date);
+      if (get().account?.id === userId) set(phase2View(refreshed, date, get().profile.totalXp, await rerollsLeftFor(quests, date)));
+      return replacement.id;
+    } catch {
+      if (get().account?.id === userId) set({ phase2Error: 'Quest could not be swapped on this device.' });
+      return undefined;
+    } finally { await db?.closeAsync(); }
   },
 
   reorderDailyQuests: (ids) => set((s) => ({ dailyQuests: applyOrder(s.dailyQuests, ids) })),
 
-  saveCheckIn: (checkIn) => set({ checkIn: { ...checkIn, date: todayIso() } }),
+  saveCheckIn: async (checkIn) => {
+    const userId = get().account?.id;
+    if (!userId) throw new Error('Sign in before checking in.');
+    let db: Awaited<ReturnType<typeof openBuddyDatabase>> | undefined;
+    try {
+      db = await openBuddyDatabase();
+      const namespace = accountNamespace(userId);
+      const repository = new CheckInRepository(db, namespace);
+      const actions = new Phase2Actions(new QuestRepository(db, namespace), repository,
+        new ProgressRepository(db, namespace), new QuestPhotoProofStore(namespace));
+      const date = todayIso();
+      const prior = await repository.get(date);
+      const saved = await actions.saveCheckIn({ ...checkIn, date }, prior?.revision ?? 0);
+      if (get().account?.id === userId) set({ checkIn: saved.checkIn, phase2Error: undefined });
+    } catch (error) {
+      if (get().account?.id === userId) set({ phase2Error: 'Check-in could not be saved on this device.' });
+      throw error;
+    } finally { await db?.closeAsync(); }
+  },
 
   toggleNote: (noteId) => changeNote(noteId, toggleDone),
 
@@ -577,4 +649,26 @@ function applyBuddyResult(
   set({ buddyTyping: false, pendingConfirmation: undefined,
     chatError: result.state === 'failed' ? result.error ?? result.answer : undefined,
     chat: [...get().chat, message] });
+}
+
+async function rerollsLeftFor(quests: QuestRepository, date: string): Promise<number> {
+  const rows = await quests.list();
+  return Math.max(0, FREE_REROLLS_PER_DAY - rows.filter((row) => row.quest.kind === 'daily' && row.quest.offeredOn === date && row.quest.status === 'rerolled').length);
+}
+
+function phase2View(snapshot: Phase2Snapshot, date: string, currentXp: number, rerollsLeft: number) {
+  const todayDone = snapshot.history.filter((row) => row.quest.offeredOn === date).map((row) => row.quest);
+  const board = [...snapshot.board.filter((row) => row.quest.offeredOn === date).map((row) => row.quest), ...todayDone];
+  return { dailyQuests: board.filter((quest) => quest.kind === 'daily'),
+    weeklyQuest: board.find((quest) => quest.kind === 'weekly'), sideQuests: board.filter((quest) => quest.kind === 'side'),
+    history: snapshot.history.map((row) => row.quest), checkIn: snapshot.checkIn?.checkIn.date === date ? snapshot.checkIn.checkIn : undefined,
+    xpEarnedToday: snapshot.earnedToday, rerollsLeft, phase2Status: 'ready' as const,
+    phase2Error: snapshot.recoveryPendingQuestIds.length ? 'Some completed quest XP is awaiting local recovery.' : undefined,
+    profile: { ...usePreviewStore.getState().profile, totalXp: Math.max(currentXp, snapshot.progress.doc.totalXp) },
+  };
+}
+
+if (cachedAccount) {
+  void usePreviewStore.getState().refreshProfile();
+  void usePreviewStore.getState().hydratePhase2();
 }

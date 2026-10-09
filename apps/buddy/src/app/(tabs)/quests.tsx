@@ -28,8 +28,10 @@ export default function Quests() {
   const side = usePreviewStore((s) => s.sideQuests);
   const history = usePreviewStore((s) => s.history);
   const rerollsLeft = usePreviewStore((s) => s.rerollsLeft);
+  const phase2Status = usePreviewStore((s) => s.phase2Status);
+  const phase2Error = usePreviewStore((s) => s.phase2Error);
 
-  const board = tab === 'daily' ? daily : tab === 'weekly' ? [weekly] : tab === 'side' ? side : [];
+  const board = tab === 'daily' ? daily : tab === 'weekly' ? (weekly ? [weekly] : []) : tab === 'side' ? side : [];
 
   return (
     <Screen>
@@ -47,6 +49,9 @@ export default function Quests() {
         ]}
       />
 
+      {phase2Status === 'loading' ? <AppText color="textMuted">Loading saved quests…</AppText> : null}
+      {phase2Status === 'error' || phase2Error ? <AppText color="danger" accessibilityLiveRegion="polite">{phase2Error ?? 'Saved quests could not be loaded.'}</AppText> : null}
+      {phase2Status === 'empty' ? <AppText color="textMuted">Sign in to load your quests.</AppText> : null}
       {/* Keyed by tab so each switch re-enters; Reduce Motion gets a short fade. */}
       <Animated.View
         key={tab}

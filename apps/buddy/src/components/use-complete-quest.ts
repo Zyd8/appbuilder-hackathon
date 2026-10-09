@@ -8,10 +8,16 @@ export function useCompleteQuest() {
   const completeQuest = usePreviewStore((s) => s.completeQuest);
   const showToast = useToast((s) => s.show);
 
-  return (questId: string, reflection?: string) => {
-    const result = completeQuest(questId, reflection);
+  return async (questId: string, photoUri: string, reflection?: string): Promise<boolean> => {
+    try {
+    const result = await completeQuest(questId, photoUri, reflection);
     if (result.leveledUpTo) showToast(t('quests.levelUp', { level: result.leveledUpTo }));
     else if (result.granted > 0) showToast(t('quests.toast', { xp: result.granted }));
     else showToast(t('quests.toastCapped'));
+    return true;
+    } catch {
+      showToast(t('quests.photo.error'));
+      return false;
+    }
   };
 }
