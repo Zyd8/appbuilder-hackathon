@@ -8,6 +8,10 @@ Expo ships breaking changes every SDK release. APIs you remember are likely rena
 2. Fetch the matching versioned docs: `https://docs.expo.dev/versions/v<major>.0.0/`
 3. For anything else, fetch https://docs.expo.dev/llms.txt — an index of all Expo docs with corrections to common LLM misconceptions. Follow its links to the specific page you need; never answer from memory.
 
+## Design system
+
+All UI must follow [`docs/design/angat-design-system.md`](../../docs/design/angat-design-system.md): light-only white background, the Angat blue palette, tokens from `src/theme/tokens.ts` (no raw hex values), `AppText` variants, `BrandLogo` for logos, and Reduce Motion support for every animation. Update that file in the same change when you add a token, component, or pattern.
+
 ## Commands
 
 Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
