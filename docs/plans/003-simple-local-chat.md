@@ -9,6 +9,23 @@
 
 Create the smallest useful local-AI demo: open the app, type a question, and talk to a bot even when cloud access is unavailable.
 
+## Core requirement correction
+
+The LLM itself must run inside the Android and iOS app. A LAN host is not the primary solution.
+
+That changes the final target from Expo Go to an Expo development build/native app. Expo Go can still be used for the UI and deterministic fallback, but it cannot load the custom native inference runtime needed for the real demo.
+
+Recommended native path:
+
+- React Native shared chat UI.
+- `llama.rn` / `llama.cpp` native binding for Android and iOS.
+- Start with a small quantized Qwen3 0.6B GGUF model.
+- Test Qwen3 1.7B if memory and latency allow.
+- Keep Qwen3.5-0.8B as a newer experimental candidate until its mobile GGUF path is verified.
+- Install or bundle the model before airplane-mode testing.
+
+The acceptance test is native inference on Android and iOS with the network disabled after model installation. No auth, cloud API, or laptop host is part of the primary flow.
+
 ## User experience
 
 1. Open the app directly to the chat screen.

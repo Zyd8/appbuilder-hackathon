@@ -34,9 +34,9 @@ Build for graceful degradation:
 
 ## Current direction
 
-PocketOps is now intentionally small: an unauthenticated local-AI chat demo. Open the app, type a question, and talk to the bot. It answers from bundled synthetic local knowledge without cloud access, stores chat history on-device, and can optionally call a local host on the same Wi-Fi network.
+PocketOps is now intentionally small: an unauthenticated local-AI chat demo. Open the app, type a question, and talk to a bot. The final target is a native Android/iOS build where the model runs inside the app, with Expo Go retained only for the UI and deterministic fallback preview.
 
-The Expo Go sample is in `apps/expo-go-sample/`. The optional deterministic local host is in `services/local-host/`.
+The current Expo Go prototype is in `apps/expo-go-sample/`. The native inference path is documented in `docs/decisions/002-native-cross-platform-inference.md`. The optional deterministic local host is only a development fallback, not the primary hackathon solution.
 
 See `docs/plans/003-simple-local-chat.md` for the current scope. The earlier field-operations plan remains in `docs/plans/002-pocketops-mvp.md` as a future expansion, not a requirement for the hackathon demo.
 
