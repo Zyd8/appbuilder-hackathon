@@ -38,7 +38,14 @@ export class LlamaRnGemmaEngine implements AIEngine {
       this.runtime = await this.runtimeLoader();
       context = await this.runtime.initLlama({
         model: nativeModelPath(verified.model), n_ctx: entry.contextTokens,
-        n_batch: 256, n_gpu_layers: 0, use_mlock: false,
+        // Prompt processing dominates: a measured turn spent 23.4s of 25.8s in prefill at
+        // n_batch 256, against 2.4s actually generating. A larger batch and explicit thread
+        // counts cut that sharply on CPU. 4 threads targets the performance cores on this
+        // device; using all eight is usually slower because the efficiency cores hold up the
+        // batch. All of these are CPU-only settings, matching n_gpu_layers: 0.
+        n_batch: 512, n_ubatch: 512,
+        n_threads: 4, n_threads_batch: 4,
+        n_gpu_layers: 0, use_mlock: false,
       });
       let vision = false;
       if (verified.projector) {
