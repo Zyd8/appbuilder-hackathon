@@ -14,7 +14,7 @@ import { Chip } from '@/components/chip';
 import { OnDeviceBadge } from '@/components/on-device-badge';
 import { Screen } from '@/components/screen';
 import type { ChatMessage } from '@/domain/types';
-import { ATTACHMENT_LIMITS, BUDDY_MODEL_LIST } from '@/features/buddy/types';
+import { BUDDY_MODEL_LIST } from '@/features/buddy/types';
 import { t } from '@/i18n';
 import { usePreviewStore } from '@/state/preview-store';
 import { radius, spacing } from '@/theme/tokens';
@@ -30,14 +30,13 @@ export default function AskBuddy() {
   const sendChat = usePreviewStore((s) => s.sendChat);
   const selectedModelId = usePreviewStore((s) => s.selectedModelId);
   const setModel = usePreviewStore((s) => s.setModel);
-  const pendingAttachments = usePreviewStore((s) => s.pendingAttachments);
-  const addAttachments = usePreviewStore((s) => s.addAttachments);
-  const removeAttachment = usePreviewStore((s) => s.removeAttachment);
   const chatError = usePreviewStore((s) => s.chatError);
   const clearChatError = usePreviewStore((s) => s.clearChatError);
   const pendingConfirmation = usePreviewStore((s) => s.pendingConfirmation);
   const decideBuddyTool = usePreviewStore((s) => s.decideBuddyTool);
   const modelStatus = usePreviewStore((s) => s.modelStatus);
+  const modelProgress = usePreviewStore((s) => s.modelProgress);
+  const pollModelProgress = usePreviewStore((s) => s.pollModelProgress);
   const refreshModelStatus = usePreviewStore((s) => s.refreshModelStatus);
   const installBuddyModel = usePreviewStore((s) => s.installBuddyModel);
   const retryBuddyModel = usePreviewStore((s) => s.retryBuddyModel);
@@ -64,12 +63,15 @@ export default function AskBuddy() {
     }, 100);
     return () => clearTimeout(timer);
   }, [pendingConfirmation]);
-  const attachmentsFull = pendingAttachments.length >= ATTACHMENT_LIMITS.maxPerMessage;
   const modelControlsBusy = typing || Boolean(pendingConfirmation);
-  // Text-only models have no vision projector, so the attachment controls are hidden entirely
-  // rather than shown and then rejected.
-  const activeModel = BUDDY_MODEL_LIST.find((model) => model.id === selectedModelId);
-  const supportsImages = Boolean(activeModel?.supportsImages);
+
+  // While a download runs, poll so the bar moves. Stopping the interval on any other state keeps
+  // this off the JS thread the rest of the time.
+  useEffect(() => {
+    if (modelStatus !== 'downloading') return;
+    const timer = setInterval(() => { void pollModelProgress(); }, 400);
+    return () => clearInterval(timer);
+  }, [modelStatus, pollModelProgress]);
 
   const send = (text: string) => {
     sendChat(text);
@@ -99,7 +101,7 @@ export default function AskBuddy() {
             <Chip
               key={model.id}
               size="compact"
-              label={model.retired ? `${model.label} (${t('buddy.model.retired')})` : model.label}
+              label={model.label}
               selected={model.id === selectedModelId}
               disabled={model.retired}
               accessibilityLabel={`${model.label} (${model.sizeLabel}). ${model.note}`}
@@ -126,6 +128,16 @@ export default function AskBuddy() {
             <AppText variant="caption" color="primary">{t('buddy.memory.open')}</AppText>
           </Pressable>
         </View>
+
+        {modelStatus === 'downloading' ? (
+          <View
+            style={[styles.progressTrack, { backgroundColor: colors.surfaceAlt }]}
+            accessibilityRole="progressbar"
+            accessibilityLabel={t('buddy.modelStatus.downloading')}
+            accessibilityValue={{ min: 0, max: 100, now: Math.round((modelProgress ?? 0) * 100) }}>
+            <View style={[styles.progressFill, { width: `${Math.round((modelProgress ?? 0) * 100)}%`, backgroundColor: colors.primary }]} />
+          </View>
+        ) : null}
 
         {memoryOpen ? <View style={styles.memoryPanel}>
           {memoryError ? <AppText color="danger">{memoryError}</AppText> : null}
@@ -177,47 +189,8 @@ export default function AskBuddy() {
           </Pressable>
         ) : null}
 
-        {supportsImages && pendingAttachments.length ? (
-          <View style={styles.attachmentRow}>
-            {pendingAttachments.map((attachment) => (
-              <Pressable
-                key={attachment.id}
-                accessibilityRole="button"
-                accessibilityLabel={`${t('buddy.removeAttachment')}: ${attachment.name}`}
-                onPress={() => removeAttachment(attachment.id)}
-                style={[styles.attachmentChip, { borderColor: colors.border, backgroundColor: colors.surfaceAlt }]}>
-                <Ionicons
-                  name={
-                    attachment.kind === 'image'
-                      ? 'image-outline'
-                      : attachment.kind === 'audio'
-                        ? 'musical-notes-outline'
-                        : 'document-outline'
-                  }
-                  size={14}
-                  color={colors.textMuted}
-                />
-                <AppText variant="caption" color="textMuted" numberOfLines={1} style={styles.attachmentName}>
-                  {attachment.status === 'ready' ? attachment.name : `${attachment.name} (${t('buddy.attachmentUnsupported')})`}
-                </AppText>
-                <Ionicons name="close" size={14} color={colors.textMuted} />
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-
         <View style={[styles.composerWrap, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
           <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
-            {supportsImages ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('buddy.attach')}
-              disabled={typing || attachmentsFull || Boolean(pendingConfirmation)}
-              onPress={() => void addAttachments()}
-              style={[styles.attach, { borderColor: colors.border, opacity: typing || attachmentsFull ? 0.4 : 1 }]}>
-              <Ionicons name="attach" size={22} color={colors.text} />
-            </Pressable>
-          ) : null}
           <TextInput
             ref={inputRef}
             value={draft}
@@ -311,24 +284,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     padding: spacing.sm,
   },
-  attachmentRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
+  progressTrack: {
+    height: 6,
+    borderRadius: 3,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    overflow: 'hidden',
   },
-  attachmentChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    maxWidth: '100%',
-  },
-  attachmentName: { maxWidth: 180 },
+  progressFill: { height: '100%', borderRadius: 3 },
   bubbleWrap: { maxWidth: '85%', gap: spacing.xs },
   left: { alignSelf: 'flex-start' },
   right: { alignSelf: 'flex-end', alignItems: 'flex-end' },
@@ -340,14 +303,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: spacing.sm,
     padding: spacing.md,
-  },
-  attach: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   input: {
     flex: 1,

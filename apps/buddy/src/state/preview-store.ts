@@ -108,6 +108,8 @@ interface PreviewState {
   chatError?: string;
   pendingConfirmation?: ConfirmationDescriptor;
   modelStatus: AIEngineReadiness | 'checking';
+  /** 0..1 while the selected model is downloading, otherwise null. */
+  modelProgress: number | null;
   memoryDocuments: readonly MemoryDocument[];
   memoryError?: string;
   allowPhysical: boolean;
@@ -143,6 +145,8 @@ interface PreviewState {
   sendChat: (text: string) => void;
   decideBuddyTool: (decision: 'confirm' | 'reject' | 'cancel') => Promise<void>;
   refreshModelStatus: () => Promise<void>;
+  /** Cheap re-read for the download progress bar; never flashes the 'checking' state. */
+  pollModelProgress: () => Promise<void>;
   installBuddyModel: (confirmed: boolean) => Promise<void>;
   retryBuddyModel: () => Promise<void>;
   deleteBuddyModel: (confirmed: boolean) => Promise<void>;
@@ -180,6 +184,7 @@ function initialState() {
     chatError: undefined,
     pendingConfirmation: undefined,
     modelStatus: 'checking' as const,
+    modelProgress: null,
     memoryDocuments: [] as readonly MemoryDocument[],
     memoryError: undefined,
     allowPhysical: true,
@@ -555,9 +560,27 @@ export const usePreviewStore = create<PreviewState>()((set, get) => ({
     set({ modelStatus: 'checking' });
     if (!userId) return;
     try {
-      const status = await (await getBuddyChatController(userId)).modelStatus(modelId);
-      if (get().account?.id === userId && get().selectedModelId === modelId) set({ modelStatus: status });
+      const controller = await getBuddyChatController(userId);
+      const status = await controller.modelStatus(modelId);
+      if (get().account?.id === userId && get().selectedModelId === modelId) {
+        set({ modelStatus: status, modelProgress: controller.modelProgress(modelId) });
+      }
     } catch { if (get().account?.id === userId) set({ modelStatus: 'error' }); }
+  },
+
+  pollModelProgress: async () => {
+    const userId = get().account?.id;
+    const modelId = get().selectedModelId;
+    if (!userId) return;
+    try {
+      const controller = await getBuddyChatController(userId);
+      const status = await controller.modelStatus(modelId);
+      if (get().account?.id === userId && get().selectedModelId === modelId) {
+        set({ modelStatus: status, modelProgress: controller.modelProgress(modelId) });
+      }
+    } catch {
+      // Polling is best-effort: keep the last known status rather than flashing an error.
+    }
   },
 
   installBuddyModel: async (confirmed) => {

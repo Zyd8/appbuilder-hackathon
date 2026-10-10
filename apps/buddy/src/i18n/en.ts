@@ -259,7 +259,6 @@ export const en = {
   'buddy.model.retry': 'Retry',
   'buddy.model.remove': 'Remove model',
   'buddy.model.removeConfirm': 'Remove this model from this device?',
-  'buddy.model.retired': 'retired',
   'buddy.profile.loading': 'Loading your profile…',
   'buddy.profile.empty': 'Finish onboarding to see your profile.',
   'buddy.profile.error': 'Your profile could not be loaded. Try again.',

@@ -70,6 +70,11 @@ export class BuddyChatController {
     return this.engine.readiness(modelId);
   }
 
+  /** 0..1 while a download runs, so the screen can show real progress instead of a spinner. */
+  modelProgress(modelId: BuddyModelId): number | null {
+    return this.manager?.progress(modelId) ?? null;
+  }
+
   /** Model lifecycle is callable only from explicit app UI controls, never from a tool request. */
   installModel(modelId: BuddyModelId, includeProjector: boolean, confirmed: boolean): Promise<void> {
     if (!this.manager) return Promise.reject(new Error('Model manager is unavailable'));

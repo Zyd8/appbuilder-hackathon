@@ -1,4 +1,4 @@
-import { Directory, File, FileMode } from 'expo-file-system';
+import { Directory, DownloadTask, File, FileMode, type DownloadProgress } from 'expo-file-system';
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 
@@ -14,19 +14,41 @@ export interface VerifiedModel {
   identity: string;
 }
 
-type Download = (url: string, destination: File) => Promise<File>;
-const defaultDownload: Download = (url, destination) => File.downloadFileAsync(url, destination);
+type Download = (url: string, destination: File, onProgress?: (fraction: number) => void) => Promise<File>;
+
+/**
+ * The one-shot `File.downloadFileAsync` reports nothing until it finishes, so use `DownloadTask`,
+ * which emits byte counts while the transfer runs. That is what drives the UI progress bar.
+ */
+const defaultDownload: Download = async (url, destination, onProgress) => {
+  const task = new DownloadTask(url, destination);
+  if (onProgress) {
+    task.addListener('progress', (data: DownloadProgress) => {
+      if (data.totalBytes > 0) onProgress(Math.min(1, data.bytesWritten / data.totalBytes));
+    });
+  }
+  const file = await task.downloadAsync();
+  if (!file) throw new Error('Model download did not complete');
+  return file;
+};
 
 export class ModelManager {
-  private selected: BuddyModelId = 'gemma4-e2b';
+  private selected: BuddyModelId = 'qwen3-1.7b';
   private active = new Set<BuddyModelId>();
   private verifying = new Set<BuddyModelId>();
   private errors = new Set<BuddyModelId>();
   private background = new Set<BuddyModelId>();
   private verifiedOk = new Set<BuddyModelId>();
   private verifiedFiles = new Map<string, string>();
+  /** 0..1 while a model download is running, cleared when it ends either way. */
+  private progressById = new Map<BuddyModelId, number>();
 
   constructor(private readonly download: Download = defaultDownload) {}
+
+  /** Let the UI render a real-time bar; null when nothing is downloading. */
+  progress(id: BuddyModelId): number | null {
+    return this.progressById.get(id) ?? null;
+  }
 
   selectedModel(): BuddyModelId { return this.selected; }
 
@@ -105,16 +127,19 @@ export class ModelManager {
     if (this.active.has(id)) throw new Error('Model download already in progress');
     this.active.add(id);
     this.errors.delete(id);
+    this.progressById.set(id, 0);
     try {
       const dir: Directory = modelsDirectory();
       dir.create({ intermediates: true, idempotent: true });
-      await this.installArtifact(entry.model);
-      if (includeProjector && entry.projector) await this.installArtifact(entry.projector);
+      const onProgress = (fraction: number) => this.progressById.set(id, fraction);
+      await this.installArtifact(entry.model, onProgress);
+      if (includeProjector && entry.projector) await this.installArtifact(entry.projector, onProgress);
     } catch (error) {
       this.errors.add(id);
       throw error;
     } finally {
       this.active.delete(id);
+      this.progressById.delete(id);
     }
   }
 
@@ -140,12 +165,14 @@ export class ModelManager {
     this.errors.delete(id);
   }
 
-  private async installArtifact(artifact: ModelArtifact): Promise<void> {
+  private async installArtifact(artifact: ModelArtifact, onProgress?: (fraction: number) => void): Promise<void> {
     const destination = artifactFile(artifact);
-    if (destination.exists && await verifyArtifact(destination, artifact)) return;
+    // Already on the device at the expected size: use it as-is and skip the download. The full
+    // digest is checked in the background by readiness(), so this stays instant.
+    if (destination.exists && destination.size === artifact.bytes) return;
     const partial = new File(modelsDirectory(), `${artifact.filename}.partial`);
     if (partial.exists) partial.delete();
-    await this.download(artifact.url, partial);
+    await this.download(artifact.url, partial, onProgress);
     if (!(await verifyArtifact(partial, artifact))) throw new Error('Downloaded model failed checksum verification');
     if (destination.exists) destination.delete();
     partial.move(destination);
