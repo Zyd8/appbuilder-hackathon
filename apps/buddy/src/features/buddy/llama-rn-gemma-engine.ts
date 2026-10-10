@@ -38,12 +38,13 @@ export class LlamaRnGemmaEngine implements AIEngine {
       this.runtime = await this.runtimeLoader();
       context = await this.runtime.initLlama({
         model: nativeModelPath(verified.model), n_ctx: entry.contextTokens,
-        // Prompt processing dominates: a measured turn spent 23.4s of 25.8s in prefill at
-        // n_batch 256, against 2.4s actually generating. A larger batch and an explicit thread
-        // count cut that sharply on CPU. 4 threads targets the performance cores on this device;
-        // using all eight is usually slower because the efficiency cores hold up the batch.
+        // Measured on the Pixel, one turn with the 1.7B model:
+        //   prompt eval 23.9s / 1342 tokens (56 tok/s)   <- 91% of the turn
+        //   eval         3.9s /   43 tokens (11 tok/s)
+        // Raising n_batch to 512 changed prefill by nothing measurable (23.4s -> 23.9s), so it
+        // is left at the default; the prompt size and the model itself are the real cost.
+        // n_threads 4 did lift generation (8.0 -> 10.9 tok/s), so that stays.
         // (n_threads_batch exists natively but is not in llama.rn's published ContextParams type.)
-        n_batch: 512, n_ubatch: 512,
         n_threads: 4,
         n_gpu_layers: 0, use_mlock: false,
       });
