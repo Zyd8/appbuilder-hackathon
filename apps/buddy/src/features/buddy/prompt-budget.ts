@@ -1,13 +1,26 @@
 /** Conservative text budget. The runtime still enforces its own token limit. */
 export interface PromptUnit { text: string; priority: 'required' | 'memory' | 'context' | 'history' | 'attachment' }
-export interface PromptBudget { contextTokens: number; reserveOutputTokens: number; maxCharsPerToken?: number }
+export interface PromptBudget {
+  contextTokens: number;
+  reserveOutputTokens: number;
+  maxCharsPerToken?: number;
+  /**
+   * Hard ceiling on the assembled prompt, independent of the context arithmetic. Prefill
+   * dominates the wall clock on a CPU-only phone (measured: ~56 tok/s, 1342-token prompt = 24s
+   * of a 28s turn), so the prompt is capped well below what the context window could hold.
+   */
+  maxPromptChars?: number;
+}
 
 export function fitPromptUnits(units: readonly PromptUnit[], budget: PromptBudget): { text: string; omitted: number } {
   const charsPerToken = budget.maxCharsPerToken ?? 3;
   if (!Number.isFinite(budget.contextTokens) || !Number.isFinite(budget.reserveOutputTokens) || budget.contextTokens <= budget.reserveOutputTokens || charsPerToken < 1) {
     throw new RangeError('Invalid prompt budget');
   }
-  const limit = Math.floor((budget.contextTokens - budget.reserveOutputTokens) * charsPerToken);
+  const limit = Math.min(
+    Math.floor((budget.contextTokens - budget.reserveOutputTokens) * charsPerToken),
+    budget.maxPromptChars ?? Number.POSITIVE_INFINITY,
+  );
   const selected = units.map(() => true);
   const size = () => units.reduce((total, unit, index) => total + (selected[index] ? unit.text.length + 2 : 0), 0);
   if (units.filter((unit) => unit.priority === 'required').reduce((sum, unit) => sum + unit.text.length + 2, 0) > limit) {

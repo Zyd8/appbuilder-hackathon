@@ -5,8 +5,8 @@ import { modelsDirectory, validateArtifactFilename } from '../model-paths';
 describe('pinned model catalog', () => {
   it('pins every artifact to a real revision with a checksum', () => {
     const entries = Object.values(MODEL_CATALOG);
-    expect(entries).toHaveLength(3);
-    expect(new Set(entries.map((entry) => entry.model.sha256)).size).toBe(3);
+    expect(entries).toHaveLength(4);
+    expect(new Set(entries.map((entry) => entry.model.sha256)).size).toBe(4);
     for (const entry of entries) {
       expect(entry.model.sha256).toMatch(/^[0-9a-f]{64}$/);
       expect(entry.model.bytes).toBeGreaterThan(500_000_000);
@@ -18,12 +18,15 @@ describe('pinned model catalog', () => {
     expect(() => catalogEntry('unknown')).toThrow('Unknown model ID');
   });
 
-  it('defaults to the text-only Qwen model and retires the Gemma entries', () => {
-    expect(DEFAULT_BUDDY_MODEL).toBe('qwen3-1.7b');
-    expect(BUDDY_MODELS[DEFAULT_BUDDY_MODEL].supportsImages).toBe(false);
+  it('defaults to the smallest model and retires the Gemma entries', () => {
+    expect(DEFAULT_BUDDY_MODEL).toBe('qwen35-0.8b');
     expect(BUDDY_MODELS[DEFAULT_BUDDY_MODEL].retired).toBe(false);
-    // Qwen is the lighter download, which is the whole reason it is the default.
-    expect(MODEL_CATALOG['qwen3-1.7b'].model.bytes).toBeLessThan(MODEL_CATALOG['gemma4-e2b'].model.bytes);
+    // The whole point of the default is speed, so it must be the lightest download offered.
+    const smallest = Math.min(...Object.values(MODEL_CATALOG).map((entry) => entry.model.bytes));
+    expect(MODEL_CATALOG[DEFAULT_BUDDY_MODEL].model.bytes).toBe(smallest);
+    // This model does ship a vision projector, so it is not text-only.
+    expect(BUDDY_MODELS[DEFAULT_BUDDY_MODEL].supportsImages).toBe(true);
+    expect(MODEL_CATALOG[DEFAULT_BUDDY_MODEL].projector).toBeDefined();
 
     for (const id of ['gemma4-e2b', 'gemma4-e4b'] as const) {
       expect(BUDDY_MODELS[id].retired).toBe(true);

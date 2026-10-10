@@ -32,9 +32,18 @@ export interface ModelCatalogEntry {
 
 /** Artifact metadata from the Hugging Face LFS pointer, pinned to the observed repository revision. */
 export const MODEL_CATALOG: Record<BuddyModelId, ModelCatalogEntry> = {
+  'qwen35-0.8b': {
+    id: 'qwen35-0.8b', label: 'Qwen3.5 0.8B', sizeLabel: 'Qwen3.5 0.8B Q4',
+    note: 'Default. Smallest and quickest to run, so replies come back fastest.',
+    source: 'unsloth/Qwen3.5-0.8B-GGUF', license: 'apache-2.0',
+    revision: '6ab461498e2023f6e3c1baea90a8f0fe38ab64d0', contextTokens: 4096,
+    platform: 'android-arm64-ios',
+    model: { filename: 'Qwen3.5-0.8B-Q4_K_M.gguf', bytes: 532517120, sha256: 'bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517', url: 'https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/6ab461498e2023f6e3c1baea90a8f0fe38ab64d0/Qwen3.5-0.8B-Q4_K_M.gguf' },
+    projector: { filename: 'mmproj-F16.gguf', bytes: 204987232, sha256: '56e4c6cfe73b0c82e3e82bc518d7591997e61d81f723fc41a586f4fa69ea2453', url: 'https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/6ab461498e2023f6e3c1baea90a8f0fe38ab64d0/mmproj-F16.gguf' },
+  },
   'qwen3-1.7b': {
     id: 'qwen3-1.7b', label: 'Qwen 1.7B', sizeLabel: 'Qwen3 1.7B Q4',
-    note: 'Fast, text-only model. About 1.1 GB to download, roughly four times quicker to run than Gemma here.',
+    note: 'Larger text-only model. Better wording, but roughly twice the wait per reply.',
     source: 'unsloth/Qwen3-1.7B-GGUF', license: 'apache-2.0',
     revision: 'd7f544eead698dbd1f15126ef60b45a1e1933222', contextTokens: 4096,
     platform: 'android-arm64-ios',

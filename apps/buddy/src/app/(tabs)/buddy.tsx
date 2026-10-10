@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Alert, findNodeHandle, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { AppText } from '@/components/app-text';
@@ -84,10 +84,14 @@ export default function AskBuddy() {
 
   return (
     <Screen scroll={false}>
-      {/* react-native-keyboard-controller reads the IME insets natively, which React Native's own
-          KeyboardAvoidingView cannot do here: the activity is edge-to-edge, so the window never
-          resizes and RN's Keyboard events never fire. */}
-      <KeyboardAvoidingView behavior="padding" style={styles.flex}>
+      {/* The composer is lifted by KeyboardStickyView instead of a KeyboardAvoidingView. The
+          avoid view needs to add bottom padding to the whole column, and that fought the tab-bar
+          clearance the Screen wrapper already applies: the composer ended up hidden while the
+          keyboard was open and stuck mid-screen after it closed. Sticky view only translates the
+          composer, so nothing else in the layout moves. It reads the IME insets natively, which
+          is required here because the activity is edge-to-edge and React Native's own Keyboard
+          events never fire. */}
+      <View style={styles.flex}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <BuddyMascot mood={typing ? 'thinking' : 'happy'} size={40} />
           <View style={styles.flex}>
@@ -189,7 +193,8 @@ export default function AskBuddy() {
           </Pressable>
         ) : null}
 
-        <View style={[styles.composerWrap, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
+        <KeyboardStickyView>
+          <View style={[styles.composerWrap, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
           <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
           <TextInput
             ref={inputRef}
@@ -211,8 +216,9 @@ export default function AskBuddy() {
             <Ionicons name="arrow-up" size={22} color={colors.onPrimary} />
           </Pressable>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+          </View>
+        </KeyboardStickyView>
+      </View>
     </Screen>
   );
 }

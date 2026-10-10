@@ -23,8 +23,8 @@ function attachment(overrides: Partial<ChatAttachment> = {}): ChatAttachment {
 
 describe('Buddy model selection', () => {
   it('defaults to the Qwen model and keeps Gemma listed but retired', () => {
-    expect(DEFAULT_BUDDY_MODEL).toBe('qwen3-1.7b');
-    expect(buddyModel(DEFAULT_BUDDY_MODEL).label).toBe('Qwen 1.7B');
+    expect(DEFAULT_BUDDY_MODEL).toBe('qwen35-0.8b');
+    expect(buddyModel(DEFAULT_BUDDY_MODEL).label).toBe('Qwen3.5 0.8B');
     expect(buddyModel(DEFAULT_BUDDY_MODEL).retired).toBe(false);
     expect(buddyModel('gemma4-e2b').label).toBe('Gemma Default');
     expect(buddyModel('gemma4-e2b').retired).toBe(true);

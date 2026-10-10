@@ -33,7 +33,9 @@ const defaultDownload: Download = async (url, destination, onProgress) => {
 };
 
 export class ModelManager {
-  private selected: BuddyModelId = 'qwen3-1.7b';
+  /** See install(): the projector is not downloaded until attachments are exposed again. */
+  private static readonly INSTALL_PROJECTOR = false;
+  private selected: BuddyModelId = 'qwen35-0.8b';
   private active = new Set<BuddyModelId>();
   private verifying = new Set<BuddyModelId>();
   private errors = new Set<BuddyModelId>();
@@ -134,7 +136,10 @@ export class ModelManager {
       const onProgress = (fraction: number) => this.progressById.set(id, fraction);
       this.progressById.set(id, 0);
       await this.installArtifact(entry.model, onProgress);
-      if (includeProjector && entry.projector) {
+      // The projector is optional for text chat and the app currently exposes no attachment
+      // controls, so it is not downloaded: it would be ~205 MB of dead weight on every install.
+      // Set this true when the attachment UI returns for a projector-bearing model.
+      if (includeProjector && entry.projector && ModelManager.INSTALL_PROJECTOR) {
         // Restart the bar for the projector so it does not sit at 100% during a second transfer.
         this.progressById.set(id, 0);
         await this.installArtifact(entry.projector, onProgress);

@@ -10,9 +10,16 @@ export interface PromptBuildOptions {
   contextLabels?: string[];
   budget?: PromptBudget;
 }
-const DEFAULT_BUDGET: PromptBudget = { contextTokens: 4096, reserveOutputTokens: 512 };
-const MAX_HISTORY_TURNS = 12;
-const MAX_UNIT_CHARS = 1500;
+/**
+ * Caps worth knowing about, because prefill is the whole cost of a turn on this hardware:
+ *  - maxPromptChars 2600  -> roughly 850 prompt tokens instead of the 1342 measured at 10752
+ *    chars, which is where most of the ~24s of prefill came from.
+ *  - MAX_UNIT_CHARS 600   -> one large memory file cannot crowd out everything else.
+ *  - MAX_HISTORY_TURNS 6  -> older turns are dropped first when the budget is tight.
+ */
+const DEFAULT_BUDGET: PromptBudget = { contextTokens: 4096, reserveOutputTokens: 512, maxPromptChars: 2600 };
+const MAX_HISTORY_TURNS = 6;
+const MAX_UNIT_CHARS = 600;
 const MAX_REQUEST_CHARS = 6000;
 
 function data(origin: string, content: string): string {
