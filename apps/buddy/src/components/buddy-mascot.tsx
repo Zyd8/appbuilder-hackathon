@@ -32,7 +32,7 @@ export function BuddyMascot({ mood = 'happy', size = 64 }: BuddyMascotProps) {
       source={source}
       style={{ width: size, height: size }}
       contentFit="contain"
-      accessibilityLabel={`Buddy looks ${mood}`}
+      accessibilityLabel={`Bambot looks ${mood}`}
     />
   );
 }

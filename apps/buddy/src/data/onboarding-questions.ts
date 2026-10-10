@@ -8,7 +8,7 @@ export const ONBOARDING_PAGES: OnboardingPage[] = [
   {
     id: 'day',
     title: 'Your day',
-    subtitle: 'So Buddy picks quests that fit your schedule.',
+    subtitle: 'So Bambot picks quests that fit your schedule.',
     buddyLine: 'First, a quick look at your days.',
     questions: [
       {
@@ -99,7 +99,7 @@ export const ONBOARDING_PAGES: OnboardingPage[] = [
   {
     id: 'rules',
     title: 'Your rules',
-    subtitle: 'Buddy will respect these in every quest.',
+    subtitle: 'Bambot will respect these in every quest.',
     buddyLine: 'Last page! Anything I should keep in mind?',
     questions: [
       {

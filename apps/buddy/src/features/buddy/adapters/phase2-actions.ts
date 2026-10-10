@@ -76,6 +76,21 @@ export class Phase2Actions {
     };
   }
 
+  async upsertGeneratedDailyQuest(quest: Quest, boundary: QuestBoundary): Promise<RevisionedQuest> {
+    if (quest.source !== 'ai' || quest.kind !== 'daily' || quest.status !== 'offered' || quest.offeredOn !== boundary.date ||
+      quest.rank !== 'E' || quest.xp !== RANK_XP.E || quest.completedAt || quest.reflection)
+      throw new ServiceError('invalid_arguments', 'Generated quest is outside the safe daily contract');
+    const template = { id: quest.id, area: quest.area, title: quest.title, flavor: quest.flavor, instruction: quest.instruction,
+      rank: quest.rank, estMinutes: quest.estMinutes, energy: 'medium' as const };
+    validateQuestCandidate(template, boundary);
+    const rows = await this.quests.list();
+    if (rows.some((row) => row.quest.offeredOn === quest.offeredOn && row.quest.kind === 'daily' && row.quest.status !== 'skipped' && row.quest.status !== 'rerolled'))
+      throw new ServiceError('invalid_transition', 'Daily quests already exist for this date');
+    const saved = await this.quests.put(quest, 0);
+    if (!saved) throw new ServiceError('stale_revision', 'Generated quest changed before it was saved');
+    return saved;
+  }
+
   async upsertCuratedQuest(quest: Quest, expectedRevision: number, boundary: QuestBoundary): Promise<RevisionedQuest> {
     const template = QUEST_LIBRARY.find((item) => item.id === quest.templateId);
     if (!template || expectedRevision !== 0 || quest.source !== 'library' || !/^[A-Za-z0-9_.-]{1,128}$/.test(quest.id) ||

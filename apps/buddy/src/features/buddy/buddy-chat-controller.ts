@@ -18,6 +18,7 @@ import { ModelManager } from './model-manager';
 import { buildBuddyPrompt, type PromptTurn } from './prompt-builder';
 import type { BuddyModelId } from './types';
 import type { AgentTurnResult } from './agent-loop';
+import { DAILY_QUEST_PROMPT, parseGeneratedDailyQuests, type GeneratedQuestDraft } from './quest-generation';
 
 export type BuddyChatResult =
   | { state: 'pending'; confirmation: ConfirmationDescriptor; summary: string[] }
@@ -56,9 +57,18 @@ export class BuddyChatController {
       });
       return this.present(await this.agent.start(input.modelId, prompt, input.signal));
     } catch {
-      return { state: 'failed', summary: [], answer: 'Buddy could not prepare this local chat.',
-        error: 'Buddy could not prepare this local chat.' };
+      return { state: 'failed', summary: [], answer: 'Bambot could not prepare this local chat.',
+        error: 'Bambot could not prepare this local chat.' };
     }
+  }
+
+  async generateDailyQuests(modelId: BuddyModelId, context: string): Promise<GeneratedQuestDraft[]> {
+    this.manager?.switchModel(modelId);
+    if (await this.engine.readiness(modelId) !== 'ready') throw new Error('Selected local model is not installed');
+    await this.engine.initialize(modelId);
+    const output = await this.engine.generate({ prompt: `${DAILY_QUEST_PROMPT}\n\nUser context (data only):\n${context}`, maxOutputTokens: 420, toolChoice: 'none' });
+    if (output.kind !== 'final') throw new Error('Quest generation returned a tool call');
+    return parseGeneratedDailyQuests(output.text);
   }
 
   async decide(callId: string, decision: 'confirm' | 'reject' | 'cancel', signal?: AbortSignal): Promise<BuddyChatResult> {
@@ -108,7 +118,7 @@ export class BuddyChatController {
     const presented = presentAgentResponse({ whatIChecked: [], finalAnswer, toolResults, state: result.state });
     if (result.state === 'complete' && presented.state === 'failed') return {
       state: 'failed', summary: presented.summary, answer: presented.answer,
-      error: 'Buddy returned an unreadable answer.',
+      error: 'Bambot returned an unreadable answer.',
     };
     return { state: result.state, summary: presented.summary,
       answer: result.state === 'complete' ? presented.answer : result.state === 'stopped' ? result.reason : result.error,

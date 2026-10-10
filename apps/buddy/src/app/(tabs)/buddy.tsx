@@ -11,7 +11,6 @@ import { BuddyToolConfirmation } from '@/components/buddy-tool-confirmation';
 import { BuddyModelStatus } from '@/components/buddy-model-status';
 import { BuddyMemorySheet } from '@/components/buddy-memory-sheet';
 import { Chip } from '@/components/chip';
-import { OnDeviceBadge } from '@/components/on-device-badge';
 import { Screen } from '@/components/screen';
 import type { ChatMessage } from '@/domain/types';
 import { BUDDY_MODEL_LIST } from '@/features/buddy/types';
@@ -96,7 +95,6 @@ export default function AskBuddy() {
           <BuddyMascot mood={typing ? 'thinking' : 'happy'} size={40} />
           <View style={styles.flex}>
             <AppText variant="title">{t('buddy.title')}</AppText>
-            <OnDeviceBadge />
           </View>
         </View>
 

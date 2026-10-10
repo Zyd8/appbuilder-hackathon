@@ -72,14 +72,12 @@ test('check-in uses the durable revisioned command', async () => {
   expect(usePreviewStore.getState().checkIn?.mood).toBe(4);
 });
 
-test('first board is curated within the earned rank, without synthetic weekly wording', async () => {
+test('does not seed quests before a local model is ready', async () => {
   mockHydrate.mockResolvedValue({ ...snapshot, board: [], history: [] });
   await usePreviewStore.getState().hydratePhase2();
-  expect(mockUpsert).toHaveBeenCalledTimes(6);
-  const offered = mockUpsert.mock.calls.map(([item]) => item);
-  expect(offered.every((item) => item.rank === 'E')).toBe(true);
-  expect(offered.some((item) => item.kind === 'weekly')).toBe(true);
-  expect(offered.some((item) => item.title === 'The Finished Thing')).toBe(false);
+  expect(mockUpsert).not.toHaveBeenCalled();
+  expect(usePreviewStore.getState().dailyQuests).toEqual([]);
+  expect(usePreviewStore.getState().phase2Status).toBe('loading');
 });
 
 test('reroll goes through durable adapter and refreshes board', async () => {

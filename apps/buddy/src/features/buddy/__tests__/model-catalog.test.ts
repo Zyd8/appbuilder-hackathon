@@ -27,12 +27,21 @@ describe('pinned model catalog', () => {
     // This model does ship a vision projector, so it is not text-only.
     expect(BUDDY_MODELS[DEFAULT_BUDDY_MODEL].supportsImages).toBe(true);
     expect(MODEL_CATALOG[DEFAULT_BUDDY_MODEL].projector).toBeDefined();
+    expect(BUDDY_MODELS['qwen35-0.8b'].retired).toBe(false);
+    expect(MODEL_CATALOG['qwen35-0.8b'].model.bytes).toBeLessThan(MODEL_CATALOG['qwen3-1.7b'].model.bytes);
+    expect(MODEL_CATALOG['qwen3-1.7b'].model.bytes).toBeLessThan(MODEL_CATALOG['gemma4-e2b'].model.bytes);
 
     for (const id of ['gemma4-e2b', 'gemma4-e4b'] as const) {
       expect(BUDDY_MODELS[id].retired).toBe(true);
       expect(BUDDY_MODELS[id].supportsImages).toBe(true);
     }
     // List order drives the chips: the default first, retired entries last.
+    expect(BUDDY_MODEL_LIST.map((model) => model.id)).toEqual([
+      'qwen35-0.8b',
+      'qwen3-1.7b',
+      'gemma4-e2b',
+      'gemma4-e4b',
+    ]);
     expect(BUDDY_MODEL_LIST[0].id).toBe(DEFAULT_BUDDY_MODEL);
     expect(BUDDY_MODEL_LIST.at(-1)?.retired).toBe(true);
   });
