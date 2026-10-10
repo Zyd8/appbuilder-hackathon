@@ -132,8 +132,15 @@ export class ModelManager {
       const dir: Directory = modelsDirectory();
       dir.create({ intermediates: true, idempotent: true });
       const onProgress = (fraction: number) => this.progressById.set(id, fraction);
+      this.progressById.set(id, 0);
       await this.installArtifact(entry.model, onProgress);
-      if (includeProjector && entry.projector) await this.installArtifact(entry.projector, onProgress);
+      if (includeProjector && entry.projector) {
+        // Restart the bar for the projector so it does not sit at 100% during a second transfer.
+        this.progressById.set(id, 0);
+        await this.installArtifact(entry.projector, onProgress);
+      }
+      // Force a fresh background digest over what was just written.
+      this.verifiedOk.delete(id);
     } catch (error) {
       this.errors.add(id);
       throw error;
@@ -173,7 +180,13 @@ export class ModelManager {
     const partial = new File(modelsDirectory(), `${artifact.filename}.partial`);
     if (partial.exists) partial.delete();
     await this.download(artifact.url, partial, onProgress);
-    if (!(await verifyArtifact(partial, artifact))) throw new Error('Downloaded model failed checksum verification');
+    // Only the size is checked inline. Hashing a multi-hundred-MB file in JavaScript takes
+    // minutes, and blocking the install on it left the progress bar frozen at 100% while the
+    // model stayed unusable. Integrity is still enforced: the background digest in
+    // verifyInBackground() demotes a mismatched file to 'error' and the UI offers Retry.
+    if (!partial.exists || partial.size !== artifact.bytes) {
+      throw new Error('Downloaded model failed its size check');
+    }
     if (destination.exists) destination.delete();
     partial.move(destination);
     this.verifiedFiles.delete(artifact.filename);
