@@ -28,18 +28,32 @@ function removeToolObjects(text: string): string {
   return output;
 }
 
+/**
+ * Model plumbing that must never reach the transcript.
+ *
+ * Qwen3 wraps chain-of-thought in ` thinking…<｜end▁of▁thinking｜>`, and Gemma 4 uses channel markers like
+ * `<|channel>thought … <channel|>`. Both are stripped here as a safety net; the engine also asks
+ * the template to disable thinking outright, so normally there is nothing to strip.
+ */
+function stripReasoning(text: string): string {
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<think>[\s\S]*$/gi, '')
+    .replace(/<\|channel\|?>[\s\S]*?(?:<\|channel\|?>|$)/gi, '');
+}
+
 /** Fail closed when final output is ambiguous; never show model protocol or reasoning. */
 export function normalizeAssistantOutput(output: AIEngineOutput | string, echoedPrompt?: string): NormalizedModelOutput {
   if (typeof output !== 'string' && output.kind === 'toolCall') return { ok: false, reason: 'tool-call' };
   if (typeof output !== 'string' && (output.kind !== 'final' || typeof output.text !== 'string' || 'toolCall' in output)) return { ok: false, reason: 'malformed' };
   let text = typeof output === 'string' ? output : output.text;
   if (echoedPrompt && text.startsWith(echoedPrompt)) text = text.slice(echoedPrompt.length);
-  text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<think>[\s\S]*$/gi, '');
+  text = stripReasoning(text);
   text = text.replace(/^(?:\s*(?:System|User)\s*:[^\n]*\n)+/gi, '');
   text = removeToolObjects(text);
   text = text.replace(/```(?:json)?\s*```/gi, '').trim();
   while (SPEAKER.test(text)) text = text.replace(SPEAKER, '').trimStart();
   if (!text || /^[\s`{}\[\]]*$/.test(text)) return { ok: false, reason: 'empty' };
-  if (/<\/?think\b|"(?:toolCall|tool_call)"\s*:|\b(?:System|User)\s*:/i.test(text)) return { ok: false, reason: 'malformed' };
+  if (/<\/?think\b|<\s*\|?\s*channel/i.test(text) || /"(?:toolCall|tool_call)"\s*:|\b(?:System|User)\s*:/i.test(text)) return { ok: false, reason: 'malformed' };
   return { ok: true, answer: text };
 }

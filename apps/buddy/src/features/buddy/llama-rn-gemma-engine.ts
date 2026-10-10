@@ -82,6 +82,11 @@ export class LlamaRnGemmaEngine implements AIEngine {
         tool_choice: request.toolChoice,
         parallel_tool_calls: false,
         media_paths: request.images?.map((image) => image.uri.replace(/^file:\/\//, '')),
+        // Qwen3-style templates prepend a reasoning block unless told not to. That block is
+        // hundreds of tokens the user never asked for: it doubles the wait on a CPU-only phone
+        // and leaks chain-of-thought into the transcript. Templates that do not know the kwarg
+        // (Gemma) ignore it, so this is safe to always send.
+        chat_template_kwargs: { enable_thinking: false },
       });
       if (request.signal?.aborted) throw new Error('Generation cancelled');
       const calls = result.tool_calls ?? [];
