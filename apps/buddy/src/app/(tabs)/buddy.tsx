@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Alert, findNodeHandle, FlatList, Keyboard, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { AccessibilityInfo, Alert, findNodeHandle, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { AppText } from '@/components/app-text';
@@ -66,20 +67,6 @@ export default function AskBuddy() {
   const attachmentsFull = pendingAttachments.length >= ATTACHMENT_LIMITS.maxPerMessage;
   const modelControlsBusy = typing || Boolean(pendingConfirmation);
 
-  // iOS resizes nothing, so lift the composer by the reported keyboard height. Android leaves
-  // this at 0 on purpose: `softwareKeyboardLayoutMode: "resize"` makes the window shrink for the
-  // keyboard instead, and lifting as well would double-count.
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  useEffect(() => {
-    if (Platform.OS !== 'ios') return;
-    const onShow = Keyboard.addListener('keyboardWillShow', (event) => setKeyboardHeight(event.endCoordinates.height));
-    const onHide = Keyboard.addListener('keyboardWillHide', () => setKeyboardHeight(0));
-    return () => {
-      onShow.remove();
-      onHide.remove();
-    };
-  }, []);
-
   const send = (text: string) => {
     sendChat(text);
     setDraft('');
@@ -91,7 +78,10 @@ export default function AskBuddy() {
 
   return (
     <Screen scroll={false}>
-      <View style={styles.flex}>
+      {/* react-native-keyboard-controller reads the IME insets natively, which React Native's own
+          KeyboardAvoidingView cannot do here: the activity is edge-to-edge, so the window never
+          resizes and RN's Keyboard events never fire. */}
+      <KeyboardAvoidingView behavior="padding" style={styles.flex}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <BuddyMascot mood={typing ? 'thinking' : 'happy'} size={40} />
           <View style={styles.flex}>
@@ -211,7 +201,7 @@ export default function AskBuddy() {
           </View>
         ) : null}
 
-        <View style={[styles.composerWrap, { borderTopColor: colors.border, backgroundColor: colors.surface, paddingBottom: keyboardHeight }]}>
+        <View style={[styles.composerWrap, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
           <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
             <Pressable
             accessibilityRole="button"
@@ -242,7 +232,7 @@ export default function AskBuddy() {
           </Pressable>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

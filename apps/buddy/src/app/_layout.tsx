@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { AppState, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { ToastHost } from '@/components/toast';
 import { todayIso } from '@/data/preview';
@@ -87,8 +88,9 @@ export default function RootLayout() {
   };
 
   return (
-    <ThemeProvider value={navTheme}>
-      <StatusBar style="dark" />
+    <KeyboardProvider>
+      <ThemeProvider value={navTheme}>
+        <StatusBar style="dark" />
       <GestureHandlerRootView style={[styles.root, { backgroundColor: colors.background }]}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
@@ -111,7 +113,8 @@ export default function RootLayout() {
         </Stack>
         <ToastHost />
       </GestureHandlerRootView>
-    </ThemeProvider>
+      </ThemeProvider>
+    </KeyboardProvider>
   );
 }
 
