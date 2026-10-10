@@ -1,7 +1,7 @@
 import { MODEL_CATALOG } from './model-catalog';
 import { artifactFile, nativeModelPath } from './model-paths';
 
-export type BuddyModelId = 'qwen3-1.7b' | 'gemma4-e2b' | 'gemma4-e4b';
+export type BuddyModelId = 'qwen3-1.7b' | 'qwen35-0.8b' | 'gemma4-e2b' | 'gemma4-e4b';
 export type AttachmentKind = 'file' | 'image' | 'audio';
 export type AttachmentStatus = 'ready' | 'unsupported' | 'failed';
 
@@ -60,6 +60,7 @@ export const BUDDY_MODELS: Record<BuddyModelId, BuddyModel> = Object.fromEntries
 
 export const BUDDY_MODEL_LIST: BuddyModel[] = [
   BUDDY_MODELS['qwen3-1.7b'],
+  BUDDY_MODELS['qwen35-0.8b'],
   BUDDY_MODELS['gemma4-e2b'],
   BUDDY_MODELS['gemma4-e4b'],
 ];

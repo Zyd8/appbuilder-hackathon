@@ -3,10 +3,10 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
+import { Button } from '@/components/button';
 import { BrandLogo } from '@/components/brand-logo';
 import type { BuddyMood } from '@/components/buddy-mascot';
 import { CheckInPrompt } from '@/components/check-in-prompt';
-import { OnDeviceBadge } from '@/components/on-device-badge';
 import { DraggableList } from '@/components/draggable-list';
 import { NoteList } from '@/components/note-list';
 import { QUEST_ROW_HEIGHT, QuestRow } from '@/components/quest-row';
@@ -58,6 +58,7 @@ export default function Today() {
   const answers = usePreviewStore((s) => s.answers);
   const profile = usePreviewStore((s) => s.profile);
   const quests = usePreviewStore((s) => s.dailyQuests);
+  const phase2Status = usePreviewStore((s) => s.phase2Status);
   const notes = usePreviewStore((s) => s.notes);
   const addNote = usePreviewStore((s) => s.addNote);
   const checkIn = usePreviewStore((s) => s.checkIn);
@@ -75,7 +76,6 @@ export default function Today() {
       <View style={styles.brandRow}>
         <BrandLogo variant="mark" height={28} />
         <View style={styles.brandActions}>
-          <OnDeviceBadge />
           <Pressable accessibilityRole="button" accessibilityLabel={t('player.settings')} onPress={() => router.push('/settings')} hitSlop={12}>
             <Ionicons name="settings-outline" size={24} color={colors.textMuted} />
           </Pressable>
@@ -106,21 +106,30 @@ export default function Today() {
         }
       />
       <View style={styles.questList}>
-        <DraggableList
-          items={quests}
-          rowHeight={QUEST_ROW_HEIGHT}
-          renderItem={(quest, dragging) => <QuestRow quest={quest} dragging={dragging} />}
-          labelFor={(quest) =>
-            `${quest.title}, ${t('quests.minutes', { count: quest.estMinutes })}${
-              quest.status === 'done' ? `, ${t('quests.completed')}` : ''
-            }`
-          }
-          onPress={(quest) => router.push({ pathname: '/quest/[id]', params: { id: quest.id } })}
-          onReorder={reorderDailyQuests}
-        />
-        <AppText variant="caption" color="textMuted" style={styles.hint}>
-          {t('quests.dragHint')}
-        </AppText>
+        {phase2Status === 'loading' && quests.length === 0 ? (
+          <View style={styles.questWaiting}>
+            <AppText color="textMuted" style={styles.waitingText}>{t('today.quests.waiting')}</AppText>
+            <Button label={t('today.quests.openBambot')} icon="chatbubble-ellipses-outline" onPress={() => router.push('/buddy')} />
+          </View>
+        ) : (
+          <>
+            <DraggableList
+              items={quests}
+              rowHeight={QUEST_ROW_HEIGHT}
+              renderItem={(quest, dragging) => <QuestRow quest={quest} dragging={dragging} />}
+              labelFor={(quest) =>
+                `${quest.title}, ${t('quests.minutes', { count: quest.estMinutes })}${
+                  quest.status === 'done' ? `, ${t('quests.completed')}` : ''
+                }`
+              }
+              onPress={(quest) => router.push({ pathname: '/quest/[id]', params: { id: quest.id } })}
+              onReorder={reorderDailyQuests}
+            />
+            <AppText variant="caption" color="textMuted" style={styles.hint}>
+              {t('quests.dragHint')}
+            </AppText>
+          </>
+        )}
       </View>
 
       <SectionHeader
@@ -148,5 +157,7 @@ const styles = StyleSheet.create({
   brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brandActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   questList: { gap: spacing.sm },
+  questWaiting: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xl },
+  waitingText: { textAlign: 'center' },
   hint: { textAlign: 'center' },
 });

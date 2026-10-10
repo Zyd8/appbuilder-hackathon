@@ -40,6 +40,15 @@ export const MODEL_CATALOG: Record<BuddyModelId, ModelCatalogEntry> = {
     platform: 'android-arm64-ios',
     model: { filename: 'Qwen3-1.7B-Q4_K_M.gguf', bytes: 1107409472, sha256: 'b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897', url: 'https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/d7f544eead698dbd1f15126ef60b45a1e1933222/Qwen3-1.7B-Q4_K_M.gguf' },
   },
+  'qwen35-0.8b': {
+    id: 'qwen35-0.8b', label: 'Qwen3.5 0.8B', sizeLabel: 'Qwen3.5 0.8B Q4',
+    note: 'Experimental: much smaller and newer, with optional vision. Validate tool calls on-device before making it the default.',
+    source: 'unsloth/Qwen3.5-0.8B-GGUF', license: 'apache-2.0',
+    revision: '6ab461498e2023f6e3c1baea90a8f0fe38ab64d0', contextTokens: 4096,
+    platform: 'android-arm64-ios',
+    model: { filename: 'Qwen3.5-0.8B-Q4_K_M.gguf', bytes: 532517120, sha256: 'bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517', url: 'https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/6ab461498e2023f6e3c1baea90a8f0fe38ab64d0/Qwen3.5-0.8B-Q4_K_M.gguf' },
+    projector: { filename: 'mmproj-F16.gguf', bytes: 204987232, sha256: 'c7185073f2b8bba6f4d35a2a63c4e6579382c73575c23359a1ee313050aaee11', url: 'https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/6ab461498e2023f6e3c1baea90a8f0fe38ab64d0/mmproj-F16.gguf' },
+  },
   'gemma4-e2b': {
     id: 'gemma4-e2b', label: 'Gemma Default', sizeLabel: 'Gemma 4 E2B',
     note: 'Retired: too slow on this device. Kept only so an existing install still loads.',

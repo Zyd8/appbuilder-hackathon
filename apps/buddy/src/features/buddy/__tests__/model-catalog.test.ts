@@ -5,8 +5,8 @@ import { modelsDirectory, validateArtifactFilename } from '../model-paths';
 describe('pinned model catalog', () => {
   it('pins every artifact to a real revision with a checksum', () => {
     const entries = Object.values(MODEL_CATALOG);
-    expect(entries).toHaveLength(3);
-    expect(new Set(entries.map((entry) => entry.model.sha256)).size).toBe(3);
+    expect(entries).toHaveLength(4);
+    expect(new Set(entries.map((entry) => entry.model.sha256)).size).toBe(4);
     for (const entry of entries) {
       expect(entry.model.sha256).toMatch(/^[0-9a-f]{64}$/);
       expect(entry.model.bytes).toBeGreaterThan(500_000_000);
@@ -22,6 +22,9 @@ describe('pinned model catalog', () => {
     expect(DEFAULT_BUDDY_MODEL).toBe('qwen3-1.7b');
     expect(BUDDY_MODELS[DEFAULT_BUDDY_MODEL].supportsImages).toBe(false);
     expect(BUDDY_MODELS[DEFAULT_BUDDY_MODEL].retired).toBe(false);
+    expect(BUDDY_MODELS['qwen35-0.8b'].retired).toBe(false);
+    expect(BUDDY_MODELS['qwen35-0.8b'].supportsImages).toBe(true);
+    expect(MODEL_CATALOG['qwen35-0.8b'].model.bytes).toBeLessThan(MODEL_CATALOG['qwen3-1.7b'].model.bytes);
     // Qwen is the lighter download, which is the whole reason it is the default.
     expect(MODEL_CATALOG['qwen3-1.7b'].model.bytes).toBeLessThan(MODEL_CATALOG['gemma4-e2b'].model.bytes);
 
@@ -31,6 +34,7 @@ describe('pinned model catalog', () => {
     }
     // List order drives the chips: the default first, retired entries last.
     expect(BUDDY_MODEL_LIST[0].id).toBe(DEFAULT_BUDDY_MODEL);
+    expect(BUDDY_MODEL_LIST[1].id).toBe('qwen35-0.8b');
     expect(BUDDY_MODEL_LIST.at(-1)?.retired).toBe(true);
   });
 

@@ -1,105 +1,176 @@
-# Buddy: Level Up
+# Angat mobile app
 
-Self-improvement quests plus a personal AI companion. Private, on-device, and offline-first.
+This directory contains the Android/iOS React Native app for the AppBuilder Hackathon entry.
 
-- Product brief: [`docs/app/buddy-level-up-overview.md`](../../docs/app/buddy-level-up-overview.md)
-- Phased plan and current status: [`docs/plans/004-buddy-level-up-phases.md`](../../docs/plans/004-buddy-level-up-phases.md)
-- Stack decision: [`docs/decisions/004-buddy-stack-expo-supabase.md`](../../docs/decisions/004-buddy-stack-expo-supabase.md)
-- Login decision: [`docs/decisions/005-google-login-before-onboarding.md`](../../docs/decisions/005-google-login-before-onboarding.md)
-- On-device AI decision: [`docs/decisions/007-buddy-gemma-native-runtime.md`](../../docs/decisions/007-buddy-gemma-native-runtime.md)
-- Voice dictation decision: [`docs/decisions/009-on-device-voice-dictation.md`](../../docs/decisions/009-on-device-voice-dictation.md)
+Angat is a local-first self-improvement companion. It uses onboarding answers, a local SQLite-backed player state, local model inference, and a controlled Bambot tool layer to turn small goals into daily action.
 
-**Current phase: 1 (UI shell).** Every screen is clickable, using synthetic in-memory preview data that resets on restart.
+For the hackathon story and complete setup, read the repository root `README.md` first.
 
-## Run it
+## Requirements
+
+- Node.js 22.x recommended.
+- npm 10+.
+- Android Studio/Android SDK for native Android builds.
+- JDK 17 for Gradle.
+- A physical ARM64 Android phone for the native model demo. The primary test device is a Pixel 9A.
+- Supabase project plus Google provider configuration for the full sign-in/onboarding flow.
+
+## Install
 
 ```bash
+cd apps/buddy
 npm install
-npx expo start
 ```
 
-Scan the QR code with Expo Go (Android or iOS). Most of the app runs in Expo Go. **Voice input in Notes** (ADR-009) and Phase 5 (on-device model) need a development build:
+Create local environment configuration from the template:
 
 ```bash
-npx expo run:android   # generates android/ (git-ignored), builds, and installs on a connected phone
+cp .env.example .env.local
 ```
 
-Voice dictation runs on the device only: Android 13+ with the English speech pack installed (the app offers the download), or iOS 17+.
+Set only the public Supabase values:
 
-## Scripts
-
-| Command | What it does |
-|---|---|
-| `npm start` | Start the Metro dev server |
-| `npm run android` / `npm run ios` | Start and open on a device or emulator |
-| `npm run typecheck` | TypeScript check |
-| `npm run lint` | ESLint (`expo lint`) |
-| `npm test` | Jest unit tests (domain logic) |
-
-## Supabase and Google login
-
-A Google login is required before onboarding (ADR-005). Copy `.env.example` to `.env.local` and fill in the project URL and **publishable** key. Never use a secret or service-role key.
-
-One-time setup in the dashboards:
-
-1. Google Cloud Console: create an OAuth client ID of type **Web application** with the authorized redirect URI `https://<project-ref>.supabase.co/auth/v1/callback`, and configure the consent screen (add test users while in Testing).
-2. Supabase → Authentication → Providers → Google: enable it and paste the client ID and secret (the secret stays in the dashboard).
-3. Supabase → Authentication → URL Configuration → Redirect URLs: add `exp://**` (Expo Go) and `buddylevelup://**` (dev/release builds).
-4. Apply `supabase/migrations/*.sql` (creates `public.profiles` with owner-only RLS).
-
-**Testing login in Expo Go:** run `npm run start:tunnel`, not `npx expo start`. On the LAN, Expo Go's redirect URL uses your PC's IP (`exp://192.168.x.x:8081/--/auth/callback`), and Supabase rejects redirect URLs with IP-address hosts even when they are allow-listed, so it falls back to the Site URL. The tunnel gives a hostname (`*.exp.direct`) that matches `exp://**`.
-
-The first launch needs internet to sign in. After that, the cached session lets the app open offline. Onboarding answers (ADR-006) and notes (ADR-008) are saved on the device first and backed up to the account in the background; other user content (quests, check-ins, chat) stays on the device. Notes need the `public.notes` table from `supabase/migrations/20261009180000_create_notes.sql` and its `position` column (drag-to-reorder, ADR-011) from `20261009232827_add_notes_position.sql`; without that column, note backups fail and stay pending.
-
-## On-device model (Ask Buddy)
-
-The chatbot runs Gemma 4 locally through `llama.rn` (llama.cpp). One dependency, one code path, Android and iOS.
-
-| Model | Pick it for | Artifact | Size |
-|---|---|---|---|
-| Gemma Default (Gemma 4 E2B) | Most phones; selected by default | `gemma-4-E2B-it-qat-UD-Q2_K_XL.gguf` + `mmproj-F16.gguf` | ~3.2 GB |
-| Gemma Pro (Gemma 4 E4B) | Stronger devices with ~4.5 GB free | `gemma-4-E4B-it-qat-UD-Q2_K_XL.gguf` + `mmproj-F16.gguf` | ~4.2 GB |
-
-Both come from the published mobile QAT GGUF repositories: [`unsloth/gemma-4-E2B-it-qat-mobile-GGUF`](https://huggingface.co/unsloth/gemma-4-E2B-it-qat-mobile-GGUF) and [`unsloth/gemma-4-E4B-it-qat-mobile-GGUF`](https://huggingface.co/unsloth/gemma-4-E4B-it-qat-mobile-GGUF).
-
-Model files are **not** committed. Download them to the device model directory:
-
+```text
+EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
 ```
-/sdcard/Android/data/com.appbuilder.buddylevelup/files/models/
-```
+
+Do not put a service-role key, OAuth client secret, database password, or private key in the app environment.
+
+## Expo Go UI preview
+
+Expo Go is suitable for navigation and UI review. It is not the runtime for llama.cpp, the native model, or on-device voice recognition.
 
 ```bash
-adb push gemma-4-E2B-it-qat-UD-Q2_K_XL.gguf /sdcard/Android/data/com.appbuilder.buddylevelup/files/models/
-adb push mmproj-F16.gguf               /sdcard/Android/data/com.appbuilder.buddylevelup/files/models/gemma-4-E2B-mmproj-F16.gguf
+npm start
 ```
 
-The `mmproj` file is the vision projector. Without it, text chat still works and image attachments are reported as unreadable instead of being silently dropped.
+Scan the QR code in Expo Go.
 
-The on-device model needs a **development build**, not Expo Go:
+For Google OAuth in Expo Go, use the tunnel:
 
 ```bash
-npx expo run:android
-# or
-npx expo run:ios
+npm run start:tunnel
 ```
 
-What works today and what does not:
+## Supabase setup
 
-- Text chat and image attachments through the projector: implemented, not yet exercised on a device.
-- Audio attachments: picked and stored, but not sent. The pinned projector has no audio path.
-- iOS: same code and same dependency, but unbuilt and unverified. Simulators do not support the Metal path.
-- Chat history is in-memory, like the rest of the Phase 1 preview store; it resets on restart.
+The full demo requires Google sign-in before onboarding.
 
-## Layout
+1. Enable Google under Supabase Authentication → Providers.
+2. Configure the Google web OAuth callback:
+   `https://YOUR_PROJECT.supabase.co/auth/v1/callback`
+3. Add Supabase redirect URLs:
+   - `exp://**`
+   - `buddylevelup://**`
+4. Apply all migrations in `supabase/migrations/`.
 
+The current migrations cover profiles, onboarding backup, notes backup, notes ordering, and the related owner-only RLS policies.
+
+The app stores local state first. Cloud operations are backup/sync paths, not the local inference path.
+
+## Native Android development build
+
+Connect a phone and authorize USB debugging:
+
+```bash
+adb devices -l
 ```
-src/
-  app/          Expo Router screens (onboarding, (tabs), settings, check-in)
-  components/   UI building blocks (quest card, radar chart, mascot, …)
-  domain/       Pure types and game rules (XP, levels) + tests
-  data/         Seed data: onboarding questions, quest library, preview data
-  state/        Zustand stores (Phase 1: in-memory preview store)
-  i18n/         All user-facing strings
-  lib/          Adapters (Supabase client, Google auth, account cache)
-  theme/        Design tokens and theme hook
+
+Build/install the development client:
+
+```bash
+npm run android
+```
+
+This compiles native modules, including llama.cpp. The first build can take a long time and requires several gigabytes of free disk space.
+
+If your shell does not already expose the Android/JDK paths:
+
+```bash
+export ANDROID_HOME="$HOME/Android/Sdk"
+export JAVA_HOME="$HOME/.local/jdk-17"
+export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
+```
+
+## Local model setup
+
+Open the Bambot tab in the app and choose Install model.
+
+The current catalog contains:
+
+- Qwen3 1.7B Q4_K_M — default, about 1.11 GB, text-first and the safer agent/tool choice.
+- Qwen3.5 0.8B Q4_K_M — experimental, about 533 MB plus optional vision projector.
+- Gemma 4 entries — retired compatibility entries; not recommended for new installs.
+
+Models are downloaded to app-private storage and verified by size and SHA-256. Model weights are never committed to Git.
+
+Qwen3.5 is not automatically the default. Test its tool-call reliability, speed, memory usage, and image path on the target phone first.
+
+## Release build
+
+The generated Gradle template currently points the release build at the debug keystore. That can produce an installable release-like APK for testing, but it is not production signing.
+
+For a test release APK:
+
+```bash
+export ANDROID_HOME="$HOME/Android/Sdk"
+export JAVA_HOME="$HOME/.local/jdk-17"
+export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
+./android/gradlew -p android app:assembleRelease \
+  --configure-on-demand --build-cache \
+  -PreactNativeArchitectures=arm64-v8a
+```
+
+Output:
+
+```text
+android/app/build/outputs/apk/release/app-release.apk
+```
+
+Before distributing publicly, replace the debug signing configuration with a real protected release keystore. Never commit the keystore or passwords.
+
+## Demo walkthrough
+
+1. Start online.
+2. Sign in with Google.
+3. Complete onboarding.
+4. Install a local model from Bambot.
+5. Wait for the model to become ready.
+6. Open Today and wait for three locally generated goals.
+7. Turn on airplane mode and disable Wi-Fi.
+8. Ask Bambot to read your stats, insights, quest state, XP, and notes.
+9. Ask it to create a todo and confirm the write.
+10. Complete a quest with the required proof photo.
+11. Verify XP, level, and rank update.
+12. Restart the app and verify local state remains available.
+
+## Verification
+
+```bash
+npm test -- --runInBand
+npm run typecheck
+npm run lint
+npx expo-doctor
+```
+
+Important acceptance limits:
+
+- No iOS native inference claim without a real iOS run.
+- No audio inference claim; audio attachments remain unsupported.
+- No cloud inference fallback.
+- No model weights in the APK or repository.
+- No success claim for a tool write without confirmation and read-back.
+
+## Source layout
+
+```text
+src/app/                 Expo Router screens
+src/components/          UI components
+src/domain/              Pure rules and deterministic services
+src/features/buddy/      Local model, agent tools, memory, chat, quest generation
+src/lib/                 Storage, SQLite, auth, sync, and native adapters
+src/state/               Presentation/orchestration store
+src/i18n/                User-facing strings
+supabase/migrations/     Database migrations and RLS
 ```

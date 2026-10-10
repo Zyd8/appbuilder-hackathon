@@ -28,7 +28,7 @@ export function TodayBanner({ greeting, level, title, progress, xpLabel, message
   return (
     <Animated.View entering={reduceMotion ? FadeIn.duration(200) : FadeInDown.duration(500)}>
       <GradientPanel style={styles.panel}>
-        <HeroAvatar accessibilityLabel={`Buddy looks ${mood}`} />
+        <HeroAvatar accessibilityLabel={`Bambot looks ${mood}`} />
 
         <View style={styles.content}>
           <AppText

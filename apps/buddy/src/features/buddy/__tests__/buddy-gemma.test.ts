@@ -26,6 +26,8 @@ describe('Buddy model selection', () => {
     expect(DEFAULT_BUDDY_MODEL).toBe('qwen3-1.7b');
     expect(buddyModel(DEFAULT_BUDDY_MODEL).label).toBe('Qwen 1.7B');
     expect(buddyModel(DEFAULT_BUDDY_MODEL).retired).toBe(false);
+    expect(buddyModel('qwen35-0.8b').label).toBe('Qwen3.5 0.8B');
+    expect(buddyModel('qwen35-0.8b').supportsImages).toBe(true);
     expect(buddyModel('gemma4-e2b').label).toBe('Gemma Default');
     expect(buddyModel('gemma4-e2b').retired).toBe(true);
     expect(buddyModel('gemma4-e4b').retired).toBe(true);

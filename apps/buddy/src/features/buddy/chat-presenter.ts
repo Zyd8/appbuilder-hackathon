@@ -7,8 +7,8 @@ export interface PresentedChat { summary: string[]; answer: string; state: 'comp
 
 export function presentChat(output: NormalizedModelOutput, actions: readonly ObservedAction[] = [], state: PresentedChat['state'] = 'complete'): PresentedChat {
   const summary = actions.map((action) => `${action.label}: ${action.outcome}.`);
-  if (state === 'stopped') return { summary, answer: 'Stopped before Buddy finished.', state };
-  if (state === 'failed' || !output.ok) return { summary, answer: 'Buddy could not produce a clean answer. Please try again.', state: 'failed' };
+  if (state === 'stopped') return { summary, answer: 'Stopped before Bambot finished.', state };
+  if (state === 'failed' || !output.ok) return { summary, answer: 'Bambot could not produce a clean answer. Please try again.', state: 'failed' };
   return { summary, answer: output.answer, state: 'complete' };
 }
 

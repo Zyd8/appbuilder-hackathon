@@ -36,6 +36,13 @@ export function validateQuestCandidate(candidate: QuestTemplate, boundary: Quest
   if (boundary.excludedTemplateIds?.includes(candidate.id)) throw new ServiceError('invalid_transition', 'Quest already used');
 }
 
+export function validateGeneratedQuest(title: string, instruction: string, minutes: number, energy: Energy, boundary: QuestBoundary): void {
+  validateQuestText(title, instruction);
+  assertLocalDate(boundary.date);
+  if (!Number.isInteger(minutes) || minutes < 2 || minutes > 30) throw new ServiceError('boundary_violation', 'Generated quest duration is outside safe limits');
+  if (energy !== 'low' && energy !== 'medium') throw new ServiceError('boundary_violation', 'Generated quest energy is outside safe limits');
+}
+
 export function questCandidates(boundary: QuestBoundary, library: readonly QuestTemplate[] = QUEST_LIBRARY): QuestTemplate[] {
   return library.filter((candidate) => {
     try { validateQuestCandidate(candidate, boundary); return true; } catch { return false; }
