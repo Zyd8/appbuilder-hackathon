@@ -66,15 +66,14 @@ export default function AskBuddy() {
   const attachmentsFull = pendingAttachments.length >= ATTACHMENT_LIMITS.maxPerMessage;
   const modelControlsBusy = typing || Boolean(pendingConfirmation);
 
-  // Android here is edge-to-edge, so the window does not resize for the keyboard and
-  // KeyboardAvoidingView has no window height to work from. Track the real keyboard height and
-  // lift the composer by it; the flex column then shrinks the transcript above.
+  // iOS resizes nothing, so lift the composer by the reported keyboard height. Android leaves
+  // this at 0 on purpose: `softwareKeyboardLayoutMode: "resize"` makes the window shrink for the
+  // keyboard instead, and lifting as well would double-count.
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const onShow = Keyboard.addListener(showEvent, (event) => setKeyboardHeight(event.endCoordinates.height));
-    const onHide = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    if (Platform.OS !== 'ios') return;
+    const onShow = Keyboard.addListener('keyboardWillShow', (event) => setKeyboardHeight(event.endCoordinates.height));
+    const onHide = Keyboard.addListener('keyboardWillHide', () => setKeyboardHeight(0));
     return () => {
       onShow.remove();
       onHide.remove();
