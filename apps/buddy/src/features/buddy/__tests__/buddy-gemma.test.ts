@@ -22,10 +22,13 @@ function attachment(overrides: Partial<ChatAttachment> = {}): ChatAttachment {
 }
 
 describe('Buddy model selection', () => {
-  it('defaults to the Gemma Default model', () => {
-    expect(DEFAULT_BUDDY_MODEL).toBe('gemma4-e2b');
-    expect(buddyModel(DEFAULT_BUDDY_MODEL).label).toBe('Gemma Default');
-    expect(buddyModel('gemma4-e4b').label).toBe('Gemma Pro');
+  it('defaults to the Qwen model and keeps Gemma listed but retired', () => {
+    expect(DEFAULT_BUDDY_MODEL).toBe('qwen3-1.7b');
+    expect(buddyModel(DEFAULT_BUDDY_MODEL).label).toBe('Qwen 1.7B');
+    expect(buddyModel(DEFAULT_BUDDY_MODEL).retired).toBe(false);
+    expect(buddyModel('gemma4-e2b').label).toBe('Gemma Default');
+    expect(buddyModel('gemma4-e2b').retired).toBe(true);
+    expect(buddyModel('gemma4-e4b').retired).toBe(true);
   });
 
   it('never silently substitutes a different model for an unknown id', () => {
@@ -39,14 +42,21 @@ describe('Buddy model selection', () => {
     expect(paths.every((path) => path.endsWith('.gguf'))).toBe(true);
   });
 
-  it('points each model at its own GGUF download and projector, under the app package', () => {
+  it('points each model at its own pinned GGUF and only ships a projector when it can read images', () => {
     for (const model of Object.values(BUDDY_MODELS)) {
-      expect(model.url).toMatch(/^https:\/\/huggingface\.co\/.+\/gemma-4-E[24]B.+\/resolve\/[a-f0-9]{40}\/.+\.gguf$/);
-      expect(model.mmprojUrl).toMatch(/\/resolve\/[a-f0-9]{40}\/mmproj-F16\.gguf$/);
+      expect(model.url).toMatch(/^https:\/\/huggingface\.co\/.+\/resolve\/[a-f0-9]{40}\/.+\.gguf$/);
       expect(model.path).toContain('/models/');
-      expect(model.mmprojPath).toContain('/models/');
       expect(model.downloadGb).toBeGreaterThan(0);
+      if (model.supportsImages) {
+        expect(model.mmprojUrl).toMatch(/\/resolve\/[a-f0-9]{40}\/mmproj-F16\.gguf$/);
+        expect(model.mmprojPath).toContain('/models/');
+      } else {
+        // Text-only models must not advertise a projector the runtime cannot use.
+        expect(model.mmprojUrl).toBeUndefined();
+        expect(model.mmprojPath).toBeUndefined();
+      }
     }
+    expect(buddyModel('qwen3-1.7b').supportsImages).toBe(false);
   });
 
   it('keeps audio labelled as unsupported by the current runtime', () => {

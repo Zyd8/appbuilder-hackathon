@@ -66,6 +66,10 @@ export default function AskBuddy() {
   }, [pendingConfirmation]);
   const attachmentsFull = pendingAttachments.length >= ATTACHMENT_LIMITS.maxPerMessage;
   const modelControlsBusy = typing || Boolean(pendingConfirmation);
+  // Text-only models have no vision projector, so the attachment controls are hidden entirely
+  // rather than shown and then rejected.
+  const activeModel = BUDDY_MODEL_LIST.find((model) => model.id === selectedModelId);
+  const supportsImages = Boolean(activeModel?.supportsImages);
 
   const send = (text: string) => {
     sendChat(text);
@@ -95,10 +99,11 @@ export default function AskBuddy() {
             <Chip
               key={model.id}
               size="compact"
-              label={model.label}
+              label={model.retired ? `${model.label} (${t('buddy.model.retired')})` : model.label}
               selected={model.id === selectedModelId}
+              disabled={model.retired}
               accessibilityLabel={`${model.label} (${model.sizeLabel}). ${model.note}`}
-              onPress={modelControlsBusy ? undefined : () => setModel(model.id)}
+              onPress={modelControlsBusy || model.retired ? undefined : () => setModel(model.id)}
             />
           ))}
         </View>
@@ -172,7 +177,7 @@ export default function AskBuddy() {
           </Pressable>
         ) : null}
 
-        {pendingAttachments.length ? (
+        {supportsImages && pendingAttachments.length ? (
           <View style={styles.attachmentRow}>
             {pendingAttachments.map((attachment) => (
               <Pressable
@@ -203,14 +208,16 @@ export default function AskBuddy() {
 
         <View style={[styles.composerWrap, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
           <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
+            {supportsImages ? (
             <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('buddy.attach')}
-            disabled={typing || attachmentsFull || Boolean(pendingConfirmation)}
-            onPress={() => void addAttachments()}
-            style={[styles.attach, { borderColor: colors.border, opacity: typing || attachmentsFull ? 0.4 : 1 }]}>
-            <Ionicons name="attach" size={22} color={colors.text} />
-          </Pressable>
+              accessibilityRole="button"
+              accessibilityLabel={t('buddy.attach')}
+              disabled={typing || attachmentsFull || Boolean(pendingConfirmation)}
+              onPress={() => void addAttachments()}
+              style={[styles.attach, { borderColor: colors.border, opacity: typing || attachmentsFull ? 0.4 : 1 }]}>
+              <Ionicons name="attach" size={22} color={colors.text} />
+            </Pressable>
+          ) : null}
           <TextInput
             ref={inputRef}
             value={draft}

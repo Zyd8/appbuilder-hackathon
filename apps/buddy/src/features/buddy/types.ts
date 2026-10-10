@@ -1,7 +1,7 @@
 import { MODEL_CATALOG } from './model-catalog';
 import { artifactFile, nativeModelPath } from './model-paths';
 
-export type BuddyModelId = 'gemma4-e2b' | 'gemma4-e4b';
+export type BuddyModelId = 'qwen3-1.7b' | 'gemma4-e2b' | 'gemma4-e4b';
 export type AttachmentKind = 'file' | 'image' | 'audio';
 export type AttachmentStatus = 'ready' | 'unsupported' | 'failed';
 
@@ -27,15 +27,19 @@ export type BuddyModel = {
   path: string;
   /** Public artifact, used for manual install and documented in the README. */
   url: string;
-  /** Multimodal projector GGUF. Needed for image input; text works without it. */
-  mmprojPath: string;
-  mmprojUrl: string;
+  /** Multimodal projector GGUF, when the model ships one. Absent for text-only models. */
+  mmprojPath?: string;
+  mmprojUrl?: string;
   /** Rough install size, so users can check free space first. */
   downloadGb: number;
   note: string;
+  /** True when the model can read images; the UI hides attachment controls otherwise. */
+  supportsImages: boolean;
+  /** Retired models stay listed but are not selectable. */
+  retired: boolean;
 };
 
-export const DEFAULT_BUDDY_MODEL: BuddyModelId = 'gemma4-e2b';
+export const DEFAULT_BUDDY_MODEL: BuddyModelId = 'qwen3-1.7b';
 
 /** Compatibility projection for the Phase-1 screen; runtime uses the catalog directly. */
 export const BUDDY_MODELS: Record<BuddyModelId, BuddyModel> = Object.fromEntries(
@@ -45,14 +49,20 @@ export const BUDDY_MODELS: Record<BuddyModelId, BuddyModel> = Object.fromEntries
     sizeLabel: entry.sizeLabel,
     get path() { return nativeModelPath(artifactFile(entry.model)); },
     url: entry.model.url,
-    get mmprojPath() { return nativeModelPath(artifactFile(entry.projector)); },
-    mmprojUrl: entry.projector.url,
-    downloadGb: (entry.model.bytes + entry.projector.bytes) / 1e9,
+    get mmprojPath() { return entry.projector ? nativeModelPath(artifactFile(entry.projector)) : undefined; },
+    mmprojUrl: entry.projector?.url,
+    downloadGb: (entry.model.bytes + (entry.projector?.bytes ?? 0)) / 1e9,
     note: entry.note,
+    supportsImages: Boolean(entry.projector),
+    retired: Boolean(entry.retired),
   }]),
 ) as Record<BuddyModelId, BuddyModel>;
 
-export const BUDDY_MODEL_LIST: BuddyModel[] = [BUDDY_MODELS['gemma4-e2b'], BUDDY_MODELS['gemma4-e4b']];
+export const BUDDY_MODEL_LIST: BuddyModel[] = [
+  BUDDY_MODELS['qwen3-1.7b'],
+  BUDDY_MODELS['gemma4-e2b'],
+  BUDDY_MODELS['gemma4-e4b'],
+];
 
 export function buddyModel(id: BuddyModelId): BuddyModel {
   if (!Object.prototype.hasOwnProperty.call(BUDDY_MODELS, id)) throw new Error('Unknown model ID');

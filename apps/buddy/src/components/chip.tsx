@@ -12,23 +12,25 @@ type ChipProps = {
   /** "compact" chips size to their label so several fit on one row. */
   size?: 'md' | 'compact';
   accessibilityLabel?: string;
+  /** Retired/legacy options render muted and ignore presses. */
+  disabled?: boolean;
 };
 
-export function Chip({ label, selected = false, onPress, size = 'md', accessibilityLabel }: ChipProps) {
+export function Chip({ label, selected = false, onPress, size = 'md', accessibilityLabel, disabled = false }: ChipProps) {
   const { colors } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ selected }}
+      accessibilityState={{ selected, disabled }}
       accessibilityLabel={accessibilityLabel}
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
       style={({ pressed }) => [
         styles.chip,
         size === 'compact' && styles.compact,
         {
           backgroundColor: selected ? colors.primary : colors.surface,
           borderColor: selected ? colors.primary : colors.border,
-          opacity: pressed ? 0.8 : 1,
+          opacity: disabled ? 0.45 : pressed ? 0.8 : 1,
         },
       ]}>
       <AppText variant="bodyStrong" style={{ color: selected ? colors.onPrimary : colors.text }}>

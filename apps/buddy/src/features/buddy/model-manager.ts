@@ -68,10 +68,12 @@ export class ModelManager {
         this.errors.add(id);
         return;
       }
-      const projector = artifactFile(entry.projector);
-      if (projector.exists && !(await this.verifyOnce(projector, entry.projector))) {
-        this.errors.add(id);
-        return;
+      if (entry.projector) {
+        const projector = artifactFile(entry.projector);
+        if (projector.exists && !(await this.verifyOnce(projector, entry.projector))) {
+          this.errors.add(id);
+          return;
+        }
       }
       // Remember success for this session: modificationTime is not always available, so the
       // fingerprint cache in verifyOnce cannot be relied on to prevent a re-hash.
@@ -86,12 +88,13 @@ export class ModelManager {
   async verified(id: BuddyModelId): Promise<VerifiedModel> {
     const entry = catalogEntry(id);
     if (await this.readiness(id) !== 'ready') throw new Error('Selected model is not ready');
-    const projector = artifactFile(entry.projector);
+    const projector = entry.projector ? artifactFile(entry.projector) : null;
+    const hasProjector = Boolean(projector?.exists);
     return {
       id,
       model: artifactFile(entry.model),
-      projector: projector.exists ? projector : null,
-      identity: [entry.id, entry.model.sha256, projector.exists ? entry.projector.sha256 : 'text-only', entry.contextTokens, entry.platform].join(':'),
+      projector: hasProjector ? projector : null,
+      identity: [entry.id, entry.model.sha256, hasProjector ? entry.projector!.sha256 : 'text-only', entry.contextTokens, entry.platform].join(':'),
     };
   }
 
@@ -106,7 +109,7 @@ export class ModelManager {
       const dir: Directory = modelsDirectory();
       dir.create({ intermediates: true, idempotent: true });
       await this.installArtifact(entry.model);
-      if (includeProjector) await this.installArtifact(entry.projector);
+      if (includeProjector && entry.projector) await this.installArtifact(entry.projector);
     } catch (error) {
       this.errors.add(id);
       throw error;
@@ -119,7 +122,7 @@ export class ModelManager {
     catalogEntry(id);
     this.errors.delete(id);
     const entry = catalogEntry(id);
-    for (const artifact of [entry.model, entry.projector]) {
+    for (const artifact of [entry.model, entry.projector].filter((item): item is ModelArtifact => Boolean(item))) {
       const partial = new File(modelsDirectory(), `${artifact.filename}.partial`);
       if (partial.exists) partial.delete();
     }
@@ -129,7 +132,7 @@ export class ModelManager {
     if (!confirmed) throw new Error('Model deletion requires confirmation');
     const entry = catalogEntry(id);
     if (this.active.has(id)) throw new Error('Cannot delete during download');
-    for (const artifact of [entry.model, entry.projector]) {
+    for (const artifact of [entry.model, entry.projector].filter((item): item is ModelArtifact => Boolean(item))) {
       const file = artifactFile(artifact);
       if (file.exists) file.delete();
       this.verifiedFiles.delete(artifact.filename);
