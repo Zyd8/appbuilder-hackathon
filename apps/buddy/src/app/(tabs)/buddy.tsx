@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Alert, findNodeHandle, FlatList, KeyboardAvoidingView, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { AccessibilityInfo, Alert, findNodeHandle, FlatList, Keyboard, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { AppText } from '@/components/app-text';
@@ -66,14 +66,33 @@ export default function AskBuddy() {
   const attachmentsFull = pendingAttachments.length >= ATTACHMENT_LIMITS.maxPerMessage;
   const modelControlsBusy = typing || Boolean(pendingConfirmation);
 
+  // Android here is edge-to-edge, so the window does not resize for the keyboard and
+  // KeyboardAvoidingView has no window height to work from. Track the real keyboard height and
+  // lift the composer by it; the flex column then shrinks the transcript above.
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = Keyboard.addListener(showEvent, (event) => setKeyboardHeight(event.endCoordinates.height));
+    const onHide = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    return () => {
+      onShow.remove();
+      onHide.remove();
+    };
+  }, []);
+
   const send = (text: string) => {
     sendChat(text);
     setDraft('');
   };
+  // Refuse to send until the selected model is genuinely ready: otherwise the runtime answers
+  // "model unavailable", which reads like a reply from Buddy rather than a blocked action.
+  const modelReady = modelStatus === 'ready';
+  const canSend = Boolean(draft.trim()) && !typing && !pendingConfirmation && modelReady;
 
   return (
     <Screen scroll={false}>
-      <KeyboardAvoidingView behavior="padding" style={styles.flex}>
+      <View style={styles.flex}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <BuddyMascot mood={typing ? 'thinking' : 'happy'} size={40} />
           <View style={styles.flex}>
@@ -135,7 +154,7 @@ export default function AskBuddy() {
               </AppText>
               <View style={styles.suggestions}>
                 {SUGGESTIONS.map((key) => (
-                  <Chip key={key} label={t(key)} onPress={() => send(t(key))} />
+                  <Chip key={key} label={t(key)} onPress={modelReady ? () => send(t(key)) : undefined} />
                 ))}
               </View>
             </View>
@@ -193,8 +212,9 @@ export default function AskBuddy() {
           </View>
         ) : null}
 
-        <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
-          <Pressable
+        <View style={[styles.composerWrap, { borderTopColor: colors.border, backgroundColor: colors.surface, paddingBottom: keyboardHeight }]}>
+          <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
+            <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('buddy.attach')}
             disabled={typing || attachmentsFull || Boolean(pendingConfirmation)}
@@ -216,13 +236,14 @@ export default function AskBuddy() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('buddy.send')}
-            disabled={!draft.trim() || typing || Boolean(pendingConfirmation)}
+            disabled={!canSend}
             onPress={() => send(draft)}
-            style={[styles.send, { backgroundColor: colors.primary, opacity: !draft.trim() || typing ? 0.4 : 1 }]}>
+            style={[styles.send, { backgroundColor: colors.primary, opacity: canSend ? 1 : 0.4 }]}>
             <Ionicons name="arrow-up" size={22} color={colors.onPrimary} />
           </Pressable>
+          </View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Screen>
   );
 }
@@ -317,12 +338,12 @@ const styles = StyleSheet.create({
   right: { alignSelf: 'flex-end', alignItems: 'flex-end' },
   bubble: { borderRadius: radius.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   bubbleAttachments: { marginBottom: spacing.xs },
+  composerWrap: { borderTopWidth: StyleSheet.hairlineWidth },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: spacing.sm,
     padding: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
   },
   attach: {
     width: 44,

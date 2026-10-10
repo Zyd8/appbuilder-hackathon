@@ -4,7 +4,7 @@ import { bytesToHex } from '@noble/hashes/utils';
 
 import type { AIEngineReadiness } from './contracts/ai-engine';
 import { artifactFile, modelsDirectory } from './model-paths';
-import { catalogEntry, type ModelArtifact } from './model-catalog';
+import { catalogEntry, type ModelArtifact, type ModelCatalogEntry } from './model-catalog';
 import type { BuddyModelId } from './types';
 
 export interface VerifiedModel {
@@ -22,6 +22,8 @@ export class ModelManager {
   private active = new Set<BuddyModelId>();
   private verifying = new Set<BuddyModelId>();
   private errors = new Set<BuddyModelId>();
+  private background = new Set<BuddyModelId>();
+  private verifiedOk = new Set<BuddyModelId>();
   private verifiedFiles = new Map<string, string>();
 
   constructor(private readonly download: Download = defaultDownload) {}
@@ -43,16 +45,41 @@ export class ModelManager {
     if (partial.exists) return 'error';
     if (!model.exists) return 'not-installed';
     if (model.size !== entry.model.bytes) return 'incompatible';
-    this.verifying.add(id);
+    // A correctly-sized file is usable now. Hashing a multi-GB model in JS takes minutes, and
+    // blocking readiness on it makes a perfectly good model look missing. Verify the digest in
+    // the background instead and demote to 'error' only if it actually disagrees.
+    void this.verifyInBackground(id, model, entry);
+    return 'ready';
+  }
+
+  /**
+   * Full SHA-256 check that does not gate readiness. Downloads are still verified inline before
+   * they are accepted; this covers files that were placed on disk by other means.
+   */
+  private async verifyInBackground(
+    id: BuddyModelId,
+    model: File,
+    entry: ModelCatalogEntry,
+  ): Promise<void> {
+    if (this.background.has(id) || this.verifiedOk.has(id)) return;
+    this.background.add(id);
     try {
-      if (!(await this.verifyOnce(model, entry.model))) return 'incompatible';
+      if (!(await this.verifyOnce(model, entry.model))) {
+        this.errors.add(id);
+        return;
+      }
       const projector = artifactFile(entry.projector);
-      if (projector.exists && !(await this.verifyOnce(projector, entry.projector))) return 'incompatible';
-      return 'ready';
+      if (projector.exists && !(await this.verifyOnce(projector, entry.projector))) {
+        this.errors.add(id);
+        return;
+      }
+      // Remember success for this session: modificationTime is not always available, so the
+      // fingerprint cache in verifyOnce cannot be relied on to prevent a re-hash.
+      this.verifiedOk.add(id);
     } catch {
-      return 'error';
+      this.errors.add(id);
     } finally {
-      this.verifying.delete(id);
+      this.background.delete(id);
     }
   }
 
